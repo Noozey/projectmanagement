@@ -1,12 +1,9 @@
+import { useTheme } from "@/context/theme.context";
 import { cn } from "@/lib/utils";
 import { motion, useMotionTemplate, useMotionValue } from "motion/react";
 import { type PointerEvent, type ReactNode } from "react";
 
 // TODO: This is just a mock
-function useTheme() {
-  return { theme: "dark" };
-}
-
 type MagicCardProps = React.ComponentProps<typeof motion.div> & {
   gradientSize?: number;
   gradientColor?: string;
