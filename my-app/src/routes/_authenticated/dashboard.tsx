@@ -113,21 +113,24 @@ function RouteComponent() {
         </div>
 
         {/* Projects List */}
-        <Card>
-          <CardHeader>
-            <CardTitle>All Projects</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4 overflow-y-auto">
-              {projects.map((project) => (
-                <div
-                  key={project.id}
-                  className="group flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-                >
+
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-xl font-semibold">All Projects</h2>
+          </div>
+
+          <div className="space-y-4 overflow-y-auto">
+            {projects.map((project) => (
+              <Card
+                key={project.id}
+                className="group transition-colors hover:bg-gray-50"
+              >
+                <CardContent className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-4 flex-1">
                     <div className="w-10 h-10 rounded-lg flex items-center justify-center">
                       <Folder className="w-5 h-5" />
                     </div>
+
                     <div className="flex-1">
                       <h3 className="font-semibold">{project.name}</h3>
                       <div className="flex items-center gap-4 mt-1 text-sm text-gray-400">
@@ -141,9 +144,12 @@ function RouteComponent() {
                       </div>
                     </div>
                   </div>
+
                   <div className="flex items-center gap-3">
                     <span
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(project.status)}`}
+                      className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
+                        project.status,
+                      )}`}
                     >
                       {project.status}
                     </span>
@@ -161,11 +167,11 @@ function RouteComponent() {
                       View
                     </Button>
                   </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
