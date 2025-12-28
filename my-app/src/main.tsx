@@ -8,6 +8,7 @@ import "./styles.css";
 import reportWebVitals from "./reportWebVitals.ts";
 import { Toaster } from "./components/ui/sonner.tsx";
 import { UserProvider } from "./context/user.tsx";
+import { ThemeProvider } from "./context/theme.context.tsx";
 
 // Create a new router instance
 const router = createRouter({
@@ -32,8 +33,10 @@ if (rootElement && !rootElement.innerHTML) {
   const root = ReactDOM.createRoot(rootElement);
   root.render(
     <UserProvider>
-      <RouterProvider router={router} />
-      <Toaster />
+      <ThemeProvider initialTheme="dark">
+        <RouterProvider router={router} />
+        <Toaster />
+      </ThemeProvider>
     </UserProvider>,
   );
 }
