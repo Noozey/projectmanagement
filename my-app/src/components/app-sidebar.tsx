@@ -1,14 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-  LifeBuoy,
-  Send,
-  Settings2,
-  Table,
-  CalendarDays,
-  LayoutDashboard,
-} from "lucide-react";
+import { Settings2, Table, CalendarDays, LayoutDashboard } from "lucide-react";
 
 import { NavMain } from "@/components/nav-main";
 import { NavProjects } from "@/components/nav-projects";
@@ -30,6 +23,7 @@ import { useProject } from "@/context/project";
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { currentProject } = useProject();
 
+  console.log(currentProject);
   const data = {
     navMain: [
       {

@@ -1,26 +1,17 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect } from "react";
 
 export const Route = createFileRoute("/_authenticated/project/$projectID")({
-  component: RouteComponent,
-});
-
-function RouteComponent() {
-  const { projectID } = Route.useParams();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!projectID) return;
+  loader: ({ params, navigate }) => {
+    const { projectID } = params;
 
     localStorage.setItem("project", projectID);
-    navigate({
-      to: "/project/dashboard/" + projectID,
+
+    throw navigate({
+      to: "/project/dashboard/$projectID",
+      params: { projectID },
+      replace: true,
     });
-  }, [navigate]);
-
-  if (!projectID) {
-    return <div>loading</div>;
-  }
-
-  return null;
-}
+  },
+  component: () => null,
+});
