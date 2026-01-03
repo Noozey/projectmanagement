@@ -3,7 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Folder, Users, CheckCircle2, Clock } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/dashboard")({
+export const Route = createFileRoute(
+  "/_authenticated/project/dashboard/$dashboard",
+)({
   component: RouteComponent,
 });
 

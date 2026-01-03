@@ -1,7 +1,6 @@
 import React, { createContext, useState, useEffect } from "react";
 import { jwtDecode } from "jwt-decode";
 import { api } from "@/lib/api.tsx";
-import { toast } from "sonner";
 
 export const UserContext = createContext({
   user: {
@@ -9,7 +8,6 @@ export const UserContext = createContext({
     email: "",
     avatar: "",
   },
-  currentProject: "",
   login: () => {},
   logout: () => {},
   isAuthenticate: false,
@@ -26,7 +24,6 @@ export const UserProvider = ({ children }) => {
     email: "",
     avatar: "",
   });
-  const [currentProject, setCurrentProject] = useState<"Personal">("Personal");
   const [isAuthenticate, setIsAuthenticate] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -97,8 +94,6 @@ export const UserProvider = ({ children }) => {
         user,
         login,
         logout,
-        currentProject,
-        setCurrentProject,
         isAuthenticate,
         isLoading,
       }}

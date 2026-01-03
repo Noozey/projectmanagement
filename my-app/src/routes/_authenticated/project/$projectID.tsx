@@ -1,7 +1,5 @@
-import { useUser } from "@/context/user";
-import { api } from "@/lib/api";
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 
 export const Route = createFileRoute("/_authenticated/project/$projectID")({
   component: RouteComponent,
@@ -9,24 +7,20 @@ export const Route = createFileRoute("/_authenticated/project/$projectID")({
 
 function RouteComponent() {
   const { projectID } = Route.useParams();
-  const [projectData, setProjectData] = useState();
-  const { user, setCurrentProject } = useUser();
-  console.log(projectData);
-
-  const getProjectInfo = async () => {
-    await api.get(`/project/${user.email}/${projectID}`).then((res) => {
-      setProjectData(res.data.message[0]);
-    });
-  };
+  const navigate = useNavigate();
 
   useEffect(() => {
-    getProjectInfo();
-  }, []);
+    if (!projectID) return;
 
-  if (!projectData) {
+    localStorage.setItem("project", projectID);
+    navigate({
+      to: "/project/dashboard/" + projectID,
+    });
+  }, [navigate]);
+
+  if (!projectID) {
     return <div>loading</div>;
   }
-  setCurrentProject(projectData.name);
 
-  return <div>Project ID{projectData.name}</div>;
+  return null;
 }

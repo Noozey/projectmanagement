@@ -8,8 +8,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-
-import { useUser } from "@/context/user";
+import { useProject } from "@/context/project";
 
 export function NavMain({
   items,
@@ -25,7 +24,7 @@ export function NavMain({
     }[];
   }[];
 }) {
-  const { currentProject } = useUser();
+  const { currentProject } = useProject();
   return (
     <SidebarGroup>
       <SidebarGroupLabel>{currentProject}</SidebarGroupLabel>

@@ -1,7 +1,7 @@
 import { CalendarUI } from "@/components/calendar-ui";
 import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/_authenticated/calendar/")({
+export const Route = createFileRoute("/_authenticated/project/calendar/")({
   component: RouteComponent,
 });
 

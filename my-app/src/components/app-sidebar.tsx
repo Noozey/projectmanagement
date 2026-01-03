@@ -25,16 +25,16 @@ import {
 
 import logo from "../../public/logo.png";
 import { NavCreate } from "./nav-create";
-import { useUser } from "@/context/user";
+import { useProject } from "@/context/project";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { currentProject } = useUser();
+  const { currentProject } = useProject();
 
   const data = {
     navMain: [
       {
         title: "DashBoard",
-        url: "/dashboard",
+        url: `/project/dashboard/${currentProject}`,
         icon: LayoutDashboard,
         isActive: true,
       },
@@ -46,7 +46,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       },
       {
         title: "Calendar",
-        url: "/calendar",
+        url: `/project/calendar/${currentProject}`,
         icon: CalendarDays,
       },
       {
