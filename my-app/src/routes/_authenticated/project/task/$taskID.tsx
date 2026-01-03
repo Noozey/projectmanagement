@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Kanban } from "@/components/kanban";
 
-export const Route = createFileRoute("/_authenticated/task/$taskID")({
+export const Route = createFileRoute("/_authenticated/project/task/$taskID")({
   component: RouteComponent,
 });
 

@@ -10,7 +10,7 @@ export const Route = createFileRoute("/_authenticated/project/$projectID")({
 function RouteComponent() {
   const { projectID } = Route.useParams();
   const [projectData, setProjectData] = useState();
-  const { user } = useUser();
+  const { user, setCurrentProject } = useUser();
   console.log(projectData);
 
   const getProjectInfo = async () => {
@@ -26,6 +26,7 @@ function RouteComponent() {
   if (!projectData) {
     return <div>loading</div>;
   }
+  setCurrentProject(projectData.name);
 
   return <div>Project ID{projectData.name}</div>;
 }

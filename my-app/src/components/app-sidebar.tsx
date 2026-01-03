@@ -25,46 +25,48 @@ import {
 
 import logo from "../../public/logo.png";
 import { NavCreate } from "./nav-create";
-
-const data = {
-  navMain: [
-    {
-      title: "DashBoard",
-      url: "/dashboard",
-      icon: LayoutDashboard,
-      isActive: true,
-    },
-    {
-      title: "Kanban Board",
-      url: "/task",
-      icon: Table,
-      isActive: true,
-    },
-    {
-      title: "Calendar",
-      url: "/calendar",
-      icon: CalendarDays,
-    },
-    {
-      title: "Settings",
-      url: "#",
-      icon: Settings2,
-    },
-  ],
-
-  Create: [
-    {
-      title: "Meeting",
-      url: "/meeting",
-    },
-    {
-      title: "Project",
-      url: "/project",
-    },
-  ],
-};
+import { useUser } from "@/context/user";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { currentProject } = useUser();
+
+  const data = {
+    navMain: [
+      {
+        title: "DashBoard",
+        url: "/dashboard",
+        icon: LayoutDashboard,
+        isActive: true,
+      },
+      {
+        title: "Kanban Board",
+        url: `/project/task/${currentProject}`,
+        icon: Table,
+        isActive: true,
+      },
+      {
+        title: "Calendar",
+        url: "/calendar",
+        icon: CalendarDays,
+      },
+      {
+        title: "Settings",
+        url: "#",
+        icon: Settings2,
+      },
+    ],
+
+    Create: [
+      {
+        title: "Meeting",
+        url: "/meeting",
+      },
+      {
+        title: "Project",
+        url: "/project",
+      },
+    ],
+  };
   return (
     <Sidebar variant="inset" {...props} className="bg-sidebar">
       <SidebarHeader>
