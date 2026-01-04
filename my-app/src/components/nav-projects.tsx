@@ -56,7 +56,7 @@ export function NavProjects() {
   }, [user]);
 
   if (!projects) {
-    return <div>No data</div>;
+    return <div></div>;
   }
 
   return (

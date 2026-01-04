@@ -21,26 +21,25 @@ import { NavCreate } from "./nav-create";
 import { useProject } from "@/context/project";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { currentProject } = useProject();
+  const { projectID } = useProject();
 
-  console.log(currentProject);
   const data = {
     navMain: [
       {
         title: "DashBoard",
-        url: `/project/dashboard/${currentProject}`,
+        url: `/project/dashboard/${projectID}`,
         icon: LayoutDashboard,
         isActive: true,
       },
       {
         title: "Kanban Board",
-        url: `/project/task/${currentProject}`,
+        url: `/project/task/${projectID}`,
         icon: Table,
         isActive: true,
       },
       {
         title: "Calendar",
-        url: `/project/calendar/${currentProject}`,
+        url: `/project/calendar/${projectID}`,
         icon: CalendarDays,
       },
       {

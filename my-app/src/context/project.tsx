@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 
 export const ProjectContext = createContext({
   currentProject: "",
+  projectID: "",
 });
 
 export const useProject = () => {
@@ -12,6 +13,7 @@ export const useProject = () => {
 
 export const ProjectProvider = ({ children }) => {
   const [currentProject, setCurrentProject] = useState<string>("Personal");
+  const [projectID, setProjectID] = useState("");
   const { user } = useUser();
 
   useEffect(() => {
@@ -23,13 +25,14 @@ export const ProjectProvider = ({ children }) => {
 
       const res = await api.get(`/project/${user.email}/${projectID}`);
       setCurrentProject(res.data.message[0].name);
+      setProjectID(res.data.message[0].uid);
     };
 
     loadProject();
   }, [user?.email]);
 
   return (
-    <ProjectContext.Provider value={{ currentProject }}>
+    <ProjectContext.Provider value={{ currentProject, projectID }}>
       {children}
     </ProjectContext.Provider>
   );
