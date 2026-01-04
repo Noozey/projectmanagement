@@ -7,6 +7,7 @@ import { checkAuthrouter } from "./routes/checkauth.js";
 import { clanderRouter } from "./routes/calendar.js";
 import { projectsRouter } from "./routes/projects.js";
 import { userRouter } from "./routes/user.js";
+import { kanbanRouter } from "./routes/kanban.js";
 
 const PORT = 3001;
 
@@ -26,6 +27,7 @@ app.use("/verify", checkAuthrouter);
 app.use("/calendar", clanderRouter);
 app.use("/project", projectsRouter);
 app.use("/user", userRouter);
+app.use("/kanban", kanbanRouter);
 app.use("/token", tokenRouter);
 
 app.listen(PORT, () => {
