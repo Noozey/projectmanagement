@@ -36,8 +36,6 @@ export function NavProjects() {
   const { isMobile } = useSidebar();
   const { user } = useUser();
 
-  console.log(projects);
-
   const getProjects = async () => {
     await api.get(`/project/${user.email}`).then((res) => {
       setProjects(

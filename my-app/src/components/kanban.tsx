@@ -1,10 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 import { AnimatePresence, motion } from "motion/react";
-import { Trash, Plus, LayoutPanelTop, AlignLeft, Pencil } from "lucide-react";
+import {
+  Trash,
+  Plus,
+  LayoutPanelTop,
+  AlignLeft,
+  Pencil,
+  Route,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +20,9 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "./ui/dialog";
+import { api } from "@/lib/api";
+import { RouteApi } from "@tanstack/react-router";
+import { useProject } from "@/context/project";
 
 // Types
 type User = { id: string; name: string; initial: string };
@@ -62,6 +72,19 @@ export function Kanban() {
     columnId: string;
     taskId: string;
   } | null>(null);
+
+  const { projectID } = useProject();
+
+  useEffect(() => {
+    api
+      .get(`kanban/${projectID}`)
+      .then((res) => {
+        console.log(res.data);
+      })
+      .catch((err) => {
+        console.error(err);
+      });
+  }, [projectID]);
 
   // --- Column Actions ---
   const addNewColumn = () => {
