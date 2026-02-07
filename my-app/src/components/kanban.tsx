@@ -4,14 +4,7 @@ import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 import { AnimatePresence, motion } from "motion/react";
-import {
-  Trash,
-  Plus,
-  LayoutPanelTop,
-  AlignLeft,
-  Pencil,
-  Route,
-} from "lucide-react";
+import { Trash, Plus, LayoutPanelTop, AlignLeft, Pencil } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -21,49 +14,42 @@ import {
   DialogFooter,
 } from "./ui/dialog";
 import { api } from "@/lib/api";
-import { RouteApi } from "@tanstack/react-router";
 import { useProject } from "@/context/project";
 
 // Types
-type User = { id: string; name: string; initial: string };
+type User = {
+  id: string;
+  name: string;
+  initial: string;
+};
+
 type Task = {
   id: string;
   title: string;
   description?: string;
   mentions?: string[];
 };
-type ColumnItem = { name: string; tasks: Task[] };
-type Column = { [key: string]: ColumnItem };
 
-const MOCK_USERS: User[] = [
-  { id: "u1", name: "Alice", initial: "A" },
-  { id: "u2", name: "Bob", initial: "B" },
-  { id: "u3", name: "Charlie", initial: "C" },
-];
+type ColumnItem = {
+  name: string;
+  tasks: Task[];
+};
+
+type Column = {
+  [key: string]: ColumnItem;
+};
 
 export function Kanban() {
-  const [columns, setColums] = useState<Column>({
-    todo: {
-      name: "To Do",
-      tasks: [
-        {
-          id: "1",
-          title: "Setup Project",
-          description: "Initial setup with Vite",
-          mentions: ["u1"],
-        },
-      ],
-    },
-    inProgress: { name: "In Progress", tasks: [] },
-    done: { name: "Done", tasks: [] },
-  });
+  const { projectID } = useProject();
+  const [columns, setColumns] = useState<Column>({});
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Form States
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDesc, setTaskDesc] = useState("");
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [newColumnName, setNewColumnName] = useState("");
-
   const [activeColumnId, setActiveColumnId] = useState<string | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
@@ -73,32 +59,62 @@ export function Kanban() {
     taskId: string;
   } | null>(null);
 
-  const { projectID } = useProject();
-
+  // Load kanban data and users
   useEffect(() => {
-    api
-      .get(`kanban/${projectID}`)
-      .then((res) => {
-        console.log(res.data);
-      })
-      .catch((err) => {
-        console.error(err);
-      });
+    loadKanbanData();
+    loadUsers();
   }, [projectID]);
 
-  // --- Column Actions ---
-  const addNewColumn = () => {
-    if (newColumnName.trim() === "") return;
-    const id = Date.now().toString(); // Use timestamp for unique ID
-    setColums({ ...columns, [id]: { name: newColumnName, tasks: [] } });
-    setNewColumnName("");
-    setIsColumnDialogOpen(false);
+  const loadKanbanData = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get(`kanban/${projectID}`);
+      setColumns(res.data || {});
+    } catch (err) {
+      console.error("Error loading kanban:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const deleteColumn = (columnId: string) => {
-    const updatedColumns = { ...columns };
-    delete updatedColumns[columnId];
-    setColums(updatedColumns);
+  const loadUsers = async () => {
+    try {
+      const res = await api.get(`kanban/${projectID}/members`);
+      setUsers(res.data || []);
+    } catch (err) {
+      console.error("Error loading users:", err);
+      setUsers([]);
+    }
+  };
+
+  // --- Column Actions ---
+  const addNewColumn = async () => {
+    if (newColumnName.trim() === "") return;
+
+    try {
+      await api.post(`kanban/${projectID}/columns`, {
+        name: newColumnName,
+      });
+
+      setNewColumnName("");
+      setIsColumnDialogOpen(false);
+      loadKanbanData();
+    } catch (error) {
+      console.error("Error creating column:", error);
+    }
+  };
+
+  const deleteColumn = async (columnId: string) => {
+    try {
+      await api.delete(`kanban/${projectID}/columns/${columnId}`);
+
+      const updatedColumns = { ...columns };
+      delete updatedColumns[columnId];
+      setColumns(updatedColumns);
+    } catch (error) {
+      console.error("Error deleting column:", error);
+      loadKanbanData();
+    }
   };
 
   // --- Task Actions ---
@@ -120,85 +136,113 @@ export function Kanban() {
     setIsTaskDialogOpen(true);
   };
 
-  const saveTask = () => {
+  const saveTask = async () => {
     if (taskTitle.trim() === "" || !activeColumnId) return;
-    const updatedColumns = { ...columns };
 
-    if (editingTaskId) {
-      updatedColumns[activeColumnId].tasks = updatedColumns[
-        activeColumnId
-      ].tasks.map((t) =>
-        t.id === editingTaskId
-          ? {
-              ...t,
-              title: taskTitle,
-              description: taskDesc,
-              mentions: selectedUsers,
-            }
-          : t,
-      );
-    } else {
-      updatedColumns[activeColumnId].tasks.push({
-        id: Date.now().toString(),
-        title: taskTitle,
-        description: taskDesc,
-        mentions: selectedUsers,
-      });
+    try {
+      if (editingTaskId) {
+        await api.put(`kanban/${projectID}/tasks/${editingTaskId}`, {
+          title: taskTitle,
+          description: taskDesc,
+          mentions: selectedUsers,
+        });
+      } else {
+        await api.post(`kanban/${projectID}/tasks`, {
+          columnId: activeColumnId,
+          title: taskTitle,
+          description: taskDesc,
+          mentions: selectedUsers,
+        });
+      }
+
+      setIsTaskDialogOpen(false);
+      loadKanbanData();
+    } catch (error) {
+      console.error("Error saving task:", error);
     }
-    setColums(updatedColumns);
-    setIsTaskDialogOpen(false);
   };
 
-  const deleteTask = (colId: string, taskId: string) => {
-    const updated = { ...columns };
-    updated[colId].tasks = updated[colId].tasks.filter((t) => t.id !== taskId);
-    setColums(updated);
+  const deleteTask = async (colId: string, taskId: string) => {
+    try {
+      await api.delete(`kanban/${projectID}/tasks/${taskId}`);
+
+      const updated = { ...columns };
+      updated[colId].tasks = updated[colId].tasks.filter(
+        (t) => t.id !== taskId,
+      );
+      setColumns(updated);
+    } catch (error) {
+      console.error("Error deleting task:", error);
+      loadKanbanData();
+    }
   };
 
   // --- Drag & Drop ---
   const handleDragStart = (columnId: string, taskId: string) =>
     setDraggedItem({ columnId, taskId });
+
   const handleDragOver = (e: React.DragEvent) => e.preventDefault();
-  const handleDrop = (e: React.DragEvent, targetColumnId: string) => {
+
+  const handleDrop = async (e: React.DragEvent, targetColumnId: string) => {
     e.preventDefault();
     if (!draggedItem) return;
+
     const { columnId: sourceId, taskId } = draggedItem;
     if (sourceId === targetColumnId) return;
 
-    const sourceTasks = [...columns[sourceId].tasks];
-    const targetTasks = [...columns[targetColumnId].tasks];
-    const taskIndex = sourceTasks.findIndex((t) => t.id === taskId);
-    const [movedTask] = sourceTasks.splice(taskIndex, 1);
-    targetTasks.push(movedTask);
+    try {
+      const sourceTasks = [...columns[sourceId].tasks];
+      const targetTasks = [...columns[targetColumnId].tasks];
 
-    setColums({
-      ...columns,
-      [sourceId]: { ...columns[sourceId], tasks: sourceTasks },
-      [targetColumnId]: { ...columns[targetColumnId], tasks: targetTasks },
-    });
-    setDraggedItem(null);
+      const taskIndex = sourceTasks.findIndex((t) => t.id === taskId);
+      const [movedTask] = sourceTasks.splice(taskIndex, 1);
+      targetTasks.push(movedTask);
+
+      setColumns({
+        ...columns,
+        [sourceId]: { ...columns[sourceId], tasks: sourceTasks },
+        [targetColumnId]: { ...columns[targetColumnId], tasks: targetTasks },
+      });
+
+      await api.put(`kanban/${projectID}/tasks/${taskId}/move`, {
+        targetColumnId: targetColumnId,
+      });
+    } catch (error) {
+      console.error("Error moving task:", error);
+      loadKanbanData();
+    } finally {
+      setDraggedItem(null);
+    }
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">Loading kanban board...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-8 bg-background min-h-screen text-foreground font-sans">
-      <header className="mb-10 flex flex-col items-center gap-4">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold mb-2">Kanban Board</h1>
-          <p className="text-muted-foreground">
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            <LayoutPanelTop className="h-8 w-8" />
+            Kanban Board
+          </h1>
+          <p className="text-muted-foreground mt-1">
             Manage your columns and tasks with ease
           </p>
         </div>
 
         <Dialog open={isColumnDialogOpen} onOpenChange={setIsColumnDialogOpen}>
           <DialogTrigger asChild>
-            <Button
-              variant="outline"
-              className="gap-2 border-primary text-primary hover:bg-primary/10"
-            >
-              <LayoutPanelTop className="h-4 w-4" /> Add New Column
+            <Button>
+              <Plus className="h-4 w-4 mr-2" /> Add New Column
             </Button>
           </DialogTrigger>
-          <DialogContent className="bg-popover border-border">
+          <DialogContent>
             <DialogHeader>
               <DialogTitle>Create New Column</DialogTitle>
             </DialogHeader>
@@ -206,23 +250,24 @@ export function Kanban() {
               value={newColumnName}
               onChange={(e) => setNewColumnName(e.target.value)}
               placeholder="e.g. Backlog, QC..."
+              onKeyDown={(e) => e.key === "Enter" && addNewColumn()}
             />
             <DialogFooter>
               <Button onClick={addNewColumn}>Create</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </header>
+      </div>
 
       {/* Task Dialog */}
       <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
-        <DialogContent className="bg-popover border-border max-w-md text-foreground">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>
               {editingTaskId ? "Edit Task" : "New Task"}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase text-muted-foreground">
                 Title
@@ -243,28 +288,36 @@ export function Kanban() {
                 placeholder="Describe the details..."
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase text-muted-foreground">
-                Mentions
-              </label>
-              <div className="flex gap-2">
-                {MOCK_USERS.map((user) => (
-                  <button
-                    key={user.id}
-                    onClick={() =>
-                      setSelectedUsers((prev) =>
-                        prev.includes(user.id)
-                          ? prev.filter((id) => id !== user.id)
-                          : [...prev, user.id],
-                      )
-                    }
-                    className={`h-8 w-8 rounded-full border text-xs font-bold transition-all ${selectedUsers.includes(user.id) ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border text-muted-foreground"}`}
-                  >
-                    {user.initial}
-                  </button>
-                ))}
+
+            {users.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase text-muted-foreground">
+                  Mentions
+                </label>
+                <div className="flex gap-2 flex-wrap">
+                  {users.map((user) => (
+                    <button
+                      key={user.id}
+                      onClick={() =>
+                        setSelectedUsers((prev) =>
+                          prev.includes(user.id)
+                            ? prev.filter((id) => id !== user.id)
+                            : [...prev, user.id],
+                        )
+                      }
+                      className={`h-8 w-8 rounded-full border text-xs font-bold transition-all ${
+                        selectedUsers.includes(user.id)
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background border-border text-muted-foreground"
+                      }`}
+                      title={user.name}
+                    >
+                      {user.initial}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
           <DialogFooter>
             <Button className="w-full" onClick={saveTask}>
@@ -296,7 +349,6 @@ export function Kanban() {
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
-                {/* Delete Column Button */}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -307,7 +359,6 @@ export function Kanban() {
                 </Button>
               </div>
             </div>
-
             <div className="flex flex-col gap-3 min-h-[100px]">
               <AnimatePresence mode="popLayout">
                 {column.tasks.map((task) => (
@@ -345,24 +396,26 @@ export function Kanban() {
                           </Button>
                         </div>
                       </div>
-
                       {task.description && (
                         <p className="text-xs text-muted-foreground line-clamp-2 mb-2 flex items-start gap-1">
                           <AlignLeft className="h-3 w-3 shrink-0 mt-0.5" />
                           {task.description}
                         </p>
                       )}
-
-                      {task.mentions?.length ? (
+                      {task.mentions?.length && users.length > 0 ? (
                         <div className="flex -space-x-2 pt-2 border-t border-border mt-2">
-                          {task.mentions.map((uId) => (
-                            <div
-                              key={uId}
-                              className="h-6 w-6 rounded-full border-2 border-card bg-primary text-[10px] flex items-center justify-center font-bold text-primary-foreground"
-                            >
-                              {MOCK_USERS.find((u) => u.id === uId)?.initial}
-                            </div>
-                          ))}
+                          {task.mentions.map((uId) => {
+                            const user = users.find((u) => u.id === uId);
+                            return user ? (
+                              <div
+                                key={uId}
+                                className="h-6 w-6 rounded-full border-2 border-card bg-primary text-[10px] flex items-center justify-center font-bold text-primary-foreground"
+                                title={user.name}
+                              >
+                                {user.initial}
+                              </div>
+                            ) : null;
+                          })}
                         </div>
                       ) : null}
                     </Card>
