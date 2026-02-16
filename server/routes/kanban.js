@@ -65,7 +65,6 @@ kanbanRouter.get("/:id/members", async (req, res) => {
 
     if (error) throw error;
 
-    // Transform to match frontend User type
     const formattedUsers =
       users?.map((user) => ({
         id: user.uid,
