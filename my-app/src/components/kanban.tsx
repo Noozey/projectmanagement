@@ -305,14 +305,14 @@ export function Kanban() {
                             : [...prev, user.id],
                         )
                       }
-                      className={`h-8 w-8 rounded-full border text-xs font-bold transition-all ${
+                      className={`h-8 w-auto px-2 rounded-full border text-xs font-bold transition-all ${
                         selectedUsers.includes(user.id)
                           ? "bg-primary text-primary-foreground border-primary"
                           : "bg-background border-border text-muted-foreground"
                       }`}
                       title={user.name}
                     >
-                      {user.initial}
+                      {user.name}
                     </button>
                   ))}
                 </div>

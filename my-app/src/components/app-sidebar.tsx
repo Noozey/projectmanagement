@@ -1,7 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { Settings2, Table, CalendarDays, LayoutDashboard } from "lucide-react";
+import {
+  Settings2,
+  Table,
+  CalendarDays,
+  LayoutDashboard,
+  MessageCircle,
+} from "lucide-react";
 
 import { NavMain } from "@/components/nav-main";
 import { NavProjects } from "@/components/nav-projects";
@@ -41,6 +47,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         title: "Calendar",
         url: `/project/calendar/${projectID}`,
         icon: CalendarDays,
+      },
+      {
+        title: "Message",
+        url: "/message",
+        icon: MessageCircle,
       },
       {
         title: "Settings",
