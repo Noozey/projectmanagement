@@ -77,6 +77,7 @@ function Message() {
           // Adjust endpoint according to your API
           const response = await api.get(`/messages/${selectedUser.uid}`);
           setMessages(response.data.messages || []);
+          console.log(response.data.message);
         } catch (error) {
           console.error("Error loading chat history:", error);
           setMessages([]); // Reset to empty if error
