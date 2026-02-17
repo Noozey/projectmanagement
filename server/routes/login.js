@@ -29,6 +29,7 @@ loginRouter.post("/", async (req, res) => {
       fullName: data.name,
       email: data.email,
       avatar: data.avatar,
+      uid: data.uid,
     },
     process.env.JWT_SECRET,
     { expiresIn: "1h" },
