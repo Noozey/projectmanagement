@@ -4,10 +4,15 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { createFileRoute } from "@tanstack/react-router";
 import { MessageCircle, Send } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { io } from "socket.io-client";
+import { useUser } from "@/context/user";
 
-const socket = io("http://localhost:3001");
+const socket = io("http://localhost:3001", {
+  auth: {
+    token: localStorage.getItem("token"),
+  },
+});
 
 export const Route = createFileRoute("/_authenticated/message/")({
   component: RouteComponent,
@@ -22,6 +27,37 @@ function Message() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(null);
   const [message, setMessage] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const messagesEndRef = useRef(null);
+  const { user: userInfo } = useUser();
+
+  useEffect(() => {
+    if (userInfo?.uid) {
+      setCurrentUserId(userInfo.uid);
+    }
+  }, [userInfo]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  useEffect(() => {
+    const handleReceive = (data) => {
+      // Add received message to messages array
+      setMessages((prev) => [...prev, data]);
+    };
+
+    socket.on("receive_message", handleReceive);
+
+    return () => {
+      socket.off("receive_message", handleReceive);
+    };
+  }, []);
 
   useEffect(() => {
     const getUser = async () => {
@@ -33,13 +69,55 @@ function Message() {
     getUser();
   }, []);
 
+  // Load chat history when a user is selected
+  useEffect(() => {
+    if (selectedUser && currentUserId) {
+      const loadChatHistory = async () => {
+        try {
+          // Adjust endpoint according to your API
+          const response = await api.get(`/messages/${selectedUser.uid}`);
+          setMessages(response.data.messages || []);
+        } catch (error) {
+          console.error("Error loading chat history:", error);
+          setMessages([]); // Reset to empty if error
+        }
+      };
+      loadChatHistory();
+    }
+  }, [selectedUser, currentUserId]);
+
   const handleSendMessage = () => {
     if (message.trim() && selectedUser) {
-      // TODO: Send message via socket or API
-      console.log("Sending message:", message, "to user:", selectedUser);
+      const messageData = {
+        senderId: currentUserId,
+        receiverId: selectedUser.uid,
+        text: message,
+        createdAt: new Date().toISOString(),
+      };
+
+      socket.emit("send_message", {
+        receiverId: selectedUser.uid,
+        text: message,
+      });
+      setMessages((prev) => [...prev, messageData]);
       setMessage("");
     }
   };
+
+  // Filter messages for the selected conversation
+  const getFilteredMessages = () => {
+    if (!selectedUser || !currentUserId) return [];
+
+    return messages.filter((msg) => {
+      return (
+        (msg.senderId === currentUserId &&
+          msg.receiverId === selectedUser.uid) ||
+        (msg.senderId === selectedUser.uid && msg.receiverId === currentUserId)
+      );
+    });
+  };
+
+  const filteredMessages = getFilteredMessages();
 
   return (
     <div className="bg-background my-5 h-screen rounded-2xl flex">
@@ -61,7 +139,7 @@ function Message() {
             const isSelected = selectedIndex === index;
             return (
               <div
-                key={index}
+                key={value.uid || index}
                 onClick={() => {
                   setSelectedUser(value);
                   setSelectedIndex(index);
@@ -116,16 +194,53 @@ function Message() {
 
             {/* Messages Area */}
             <div className="flex-1 p-6 overflow-y-auto">
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center space-y-2">
-                  <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
-                    <MessageCircle className="w-8 h-8 text-muted-foreground" />
+              {filteredMessages.length === 0 ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center space-y-2">
+                    <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
+                      <MessageCircle className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      No messages yet. Start the conversation!
+                    </p>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    No messages yet. Start the conversation!
-                  </p>
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-4">
+                  {filteredMessages.map((msg, index) => {
+                    const isSentByMe = msg.senderId === currentUserId;
+                    return (
+                      <div
+                        key={index}
+                        className={`flex ${isSentByMe ? "justify-end" : "justify-start"}`}
+                      >
+                        <div
+                          className={`max-w-[70%] rounded-lg px-4 py-2 ${
+                            isSentByMe
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted text-foreground"
+                          }`}
+                        >
+                          <p className="text-sm break-words">{msg.text}</p>
+                          <p
+                            className={`text-xs mt-1 ${
+                              isSentByMe
+                                ? "text-primary-foreground/70"
+                                : "text-muted-foreground"
+                            }`}
+                          >
+                            {new Date(msg.createdAt).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div ref={messagesEndRef} />
+                </div>
+              )}
             </div>
 
             {/* Message Input */}

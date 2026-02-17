@@ -17,4 +17,15 @@ userRouter.post("/profile", async (req, res) => {
   return res.status(200).json({ message: user });
 });
 
+userRouter.get("/", async (req, res) => {
+  const { data: user, err } = await supabase
+    .from("registration")
+    .select("id,uid,name,email");
+
+  if (err) {
+    return res.status(400).json({ message: "Database error", err });
+  }
+  return res.status(200).json({ message: user });
+});
+
 export { userRouter };

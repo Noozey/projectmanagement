@@ -7,6 +7,7 @@ export const UserContext = createContext({
     fullName: "",
     email: "",
     avatar: "",
+    uid: "",
   },
   login: () => {},
   logout: () => {},
@@ -23,6 +24,7 @@ export const UserProvider = ({ children }) => {
     fullName: "",
     email: "",
     avatar: "",
+    uid: "",
   });
   const [isAuthenticate, setIsAuthenticate] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -34,6 +36,7 @@ export const UserProvider = ({ children }) => {
       fullName: decoded.fullName,
       email: decoded.email,
       avatar: decoded.avatar,
+      uid: decoded.uid,
     });
     setIsAuthenticate(true);
     api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
@@ -45,6 +48,7 @@ export const UserProvider = ({ children }) => {
       fullName: "",
       email: "",
       avatar: "",
+      uid: "",
     });
     setIsAuthenticate(false);
     delete api.defaults.headers.common["Authorization"];
