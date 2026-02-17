@@ -11,6 +11,7 @@ import { kanbanRouter } from "./routes/kanban.js";
 import { initSocket } from "./config/socket.js";
 import registerSocketHandlers from "./sockets/index.js";
 import http from "http";
+import { messageRouter } from "./routes/message.js";
 
 const PORT = 3001;
 
@@ -33,6 +34,7 @@ app.use("/project", projectsRouter);
 app.use("/user", userRouter);
 app.use("/kanban", kanbanRouter);
 app.use("/token", tokenRouter);
+app.use("/messages", messageRouter);
 
 const io = initSocket(server);
 registerSocketHandlers(io);
