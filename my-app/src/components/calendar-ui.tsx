@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -7,8 +7,10 @@ import {
   Clock,
   ExternalLink,
   Calendar,
+  Loader2,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useProject } from "@/context/project";
 
 interface Event {
   id: number;
@@ -39,18 +41,65 @@ export function CalendarUI() {
   const [eventDescription, setEventDescription] = useState<string>("");
   const [meetingLink, setMeetingLink] = useState<string>("");
   const [isRangeEvent, setIsRangeEvent] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
+  const { projectID } = useProject();
+
+  // ─── Fetch saved events on mount / when projectID changes ───────────────────
   useEffect(() => {
-    const timer = setTimeout(async () => {
-      try {
-        await api.post("/calendar", { events });
-      } catch (error) {
-        console.error("Auto-save failed:", error);
-      }
-    }, 1000);
+    if (!projectID) return;
 
+    const fetchEvents = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const res = await api.get(`/calendar/${projectID}`);
+        if (res.data?.events) {
+          setEvents(res.data.events);
+        }
+      } catch (error) {
+        console.error("Failed to load events:", error);
+        setLoadError("Failed to load events.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchEvents();
+  }, [projectID]);
+
+  // ─── Save to backend ─────────────────────────────────────────────────────────
+  const saveToBackend = useCallback(
+    async (updatedEvents: EventsMap) => {
+      if (!projectID) return;
+      setIsSaving(true);
+      setSaveError(null);
+      try {
+        await api.post("/calendar", {
+          projectID,
+          events: updatedEvents,
+        });
+      } catch (error) {
+        console.error("Save failed:", error);
+        setSaveError("Failed to save. Retrying...");
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [projectID],
+  );
+
+  // Debounced auto-save — skip while initial data is loading
+  useEffect(() => {
+    if (isLoading) return;
+    const timer = setTimeout(() => {
+      saveToBackend(events);
+    }, 1000);
     return () => clearTimeout(timer);
-  }, [events]);
+  }, [events, projectID, saveToBackend, isLoading]);
 
   const monthNames: string[] = [
     "January",
@@ -100,7 +149,6 @@ export function CalendarUI() {
       currentDate.getMonth(),
       day,
     );
-
     if (isRangeMode) {
       if (!rangeStart) {
         setRangeStart(newDate);
@@ -134,7 +182,7 @@ export function CalendarUI() {
     return dates;
   };
 
-  const handleAddEvent = (): void => {
+  const handleAddEvent = async (): Promise<void> => {
     if (!eventTitle) return;
 
     const newEvent: Event = {
@@ -145,9 +193,10 @@ export function CalendarUI() {
       meetingLink: meetingLink,
     };
 
+    let updatedEvents: EventsMap = { ...events };
+
     if (isRangeEvent && rangeStart && rangeEnd) {
       const dates = getDatesInRange(rangeStart, rangeEnd);
-      const updatedEvents: EventsMap = { ...events };
       dates.forEach((date) => {
         const dateKey = formatDateKey(date);
         updatedEvents[dateKey] = [
@@ -155,14 +204,13 @@ export function CalendarUI() {
           { ...newEvent, id: Date.now() + Math.random() },
         ];
       });
-      setEvents(updatedEvents);
     } else if (selectedDate) {
       const dateKey = formatDateKey(selectedDate);
-      setEvents((prev) => ({
-        ...prev,
-        [dateKey]: [...(prev[dateKey] || []), newEvent],
-      }));
+      updatedEvents[dateKey] = [...(updatedEvents[dateKey] || []), newEvent];
     }
+
+    setEvents(updatedEvents);
+    await saveToBackend(updatedEvents);
 
     setEventTitle("");
     setEventTime("");
@@ -172,11 +220,16 @@ export function CalendarUI() {
     setIsRangeEvent(false);
   };
 
-  const handleDeleteEvent = (dateKey: string, eventId: number): void => {
-    setEvents((prev) => ({
-      ...prev,
-      [dateKey]: prev[dateKey].filter((e) => e.id !== eventId),
-    }));
+  const handleDeleteEvent = async (
+    dateKey: string,
+    eventId: number,
+  ): Promise<void> => {
+    const updatedEvents: EventsMap = {
+      ...events,
+      [dateKey]: events[dateKey].filter((e) => e.id !== eventId),
+    };
+    setEvents(updatedEvents);
+    await saveToBackend(updatedEvents);
   };
 
   const isDateInRange = (date: Date): boolean => {
@@ -278,6 +331,60 @@ export function CalendarUI() {
   const rangeEvents: EventWithDate[] =
     rangeStart && rangeEnd ? getRangeEvents() : [];
 
+  // ─── Shared event card ───────────────────────────────────────────────────────
+  const EventCard = ({
+    event,
+    dateKey,
+  }: {
+    event: Event & { date?: string };
+    dateKey: string;
+  }) => (
+    <div className="p-3 sm:p-4 bg-card rounded-xl sm:rounded-2xl border-2 border-border hover:border-muted hover:shadow-md transition-all duration-200">
+      <div className="flex justify-between items-start mb-1.5 sm:mb-2">
+        <div className="flex-1 min-w-0">
+          <h4 className="font-bold text-card-foreground text-xs sm:text-sm truncate">
+            {event.title}
+          </h4>
+          {event.date && (
+            <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
+              {event.date}
+            </p>
+          )}
+        </div>
+        <button
+          onClick={() => handleDeleteEvent(dateKey, event.id)}
+          className="text-destructive hover:bg-destructive/10 p-1 sm:p-1.5 rounded-lg transition-all flex-shrink-0 ml-2"
+        >
+          <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+        </button>
+      </div>
+      {event.time && (
+        <div className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm text-muted-foreground mb-1.5 sm:mb-2">
+          <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-primary flex-shrink-0" />
+          <span className="truncate">{event.time}</span>
+        </div>
+      )}
+      {event.meetingLink && (
+        <div className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm mb-1.5 sm:mb-2">
+          <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 text-primary flex-shrink-0" />
+          <a
+            href={event.meetingLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline truncate"
+          >
+            Join Meeting
+          </a>
+        </div>
+      )}
+      {event.description && (
+        <p className="text-[10px] sm:text-xs text-muted-foreground mt-1.5 sm:mt-2 line-clamp-2">
+          {event.description}
+        </p>
+      )}
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-background rounded-2xl mt-5 p-2 sm:p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
@@ -289,318 +396,279 @@ export function CalendarUI() {
           <p className="text-xs sm:text-sm text-muted-foreground">
             Manage your schedule with ease
           </p>
+
+          {/* Status indicators */}
+          <div className="mt-2 h-5 flex items-center justify-center gap-2">
+            {isLoading && (
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Loading events...
+              </span>
+            )}
+            {isSaving && !isLoading && (
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground animate-pulse">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Saving...
+              </span>
+            )}
+            {loadError && !isLoading && (
+              <span className="text-xs text-destructive">{loadError}</span>
+            )}
+            {saveError && !isSaving && (
+              <span className="text-xs text-destructive">{saveError}</span>
+            )}
+            {!isLoading && !isSaving && !loadError && !saveError && (
+              <span className="text-xs text-muted-foreground opacity-60">
+                All changes saved ✓
+              </span>
+            )}
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
-          {/* Calendar Section */}
-          <div className="lg:col-span-2">
-            <div className="bg-card rounded-2xl sm:rounded-3xl shadow-lg border border-border p-3 sm:p-4 md:p-6 lg:p-8">
-              {/* Calendar Header */}
-              <div className="flex items-center justify-between mb-4 sm:mb-6">
-                <div>
-                  <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-card-foreground">
-                    {monthNames[currentDate.getMonth()]}
-                  </h2>
-                  <p className="text-muted-foreground text-sm sm:text-base md:text-lg">
-                    {currentDate.getFullYear()}
-                  </p>
-                </div>
-                <div className="flex gap-1 sm:gap-2">
-                  <button
-                    onClick={handlePrevMonth}
-                    className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-muted hover:bg-accent transition-all duration-200 hover:scale-105"
-                  >
-                    <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-foreground" />
-                  </button>
-                  <button
-                    onClick={handleNextMonth}
-                    className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-muted hover:bg-accent transition-all duration-200 hover:scale-105"
-                  >
-                    <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-foreground" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Range Mode Toggle */}
-              <div className="mb-4 sm:mb-6 flex flex-wrap items-center gap-2 sm:gap-3">
-                <button
-                  onClick={() => {
-                    setIsRangeMode(!isRangeMode);
-                    setRangeStart(null);
-                    setRangeEnd(null);
-                    setSelectedDate(null);
-                  }}
-                  className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 border-2 ${
-                    isRangeMode
-                      ? "bg-primary text-primary-foreground border-primary shadow-md"
-                      : "bg-card text-foreground border-border hover:bg-muted"
-                  }`}
-                >
-                  <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span className="hidden xs:inline">
-                    {isRangeMode ? "Range Mode" : "Single Date"}
-                  </span>
-                  <span className="xs:hidden">
-                    {isRangeMode ? "Range" : "Single"}
-                  </span>
-                </button>
-                {isRangeMode && (
-                  <span className="text-[10px] sm:text-xs md:text-sm text-muted-foreground bg-muted px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-border">
-                    {!rangeStart && "Select start"}
-                    {rangeStart && !rangeEnd && "Select end"}
-                    {rangeStart && rangeEnd && (
-                      <span className="block sm:inline">
-                        <span className="hidden sm:inline">
-                          {rangeStart.toLocaleDateString()} -{" "}
-                          {rangeEnd.toLocaleDateString()}
-                        </span>
-                        <span className="sm:hidden">
-                          {rangeStart.getMonth() + 1}/{rangeStart.getDate()} -{" "}
-                          {rangeEnd.getMonth() + 1}/{rangeEnd.getDate()}
-                        </span>
-                      </span>
-                    )}
-                  </span>
-                )}
-              </div>
-
-              {/* Day Names */}
-              <div className="grid grid-cols-7 gap-0.5 sm:gap-1 md:gap-2 mb-2 sm:mb-3">
-                {dayNames.map((day) => (
-                  <div
-                    key={day}
-                    className="text-center font-bold text-muted-foreground text-[10px] sm:text-xs md:text-sm py-1 sm:py-2"
-                  >
-                    <span className="hidden sm:inline">{day}</span>
-                    <span className="sm:hidden">{day.charAt(0)}</span>
+        {/* Loading state for initial fetch */}
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-32 gap-4">
+            <Loader2 className="w-10 h-10 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">
+              Loading your calendar...
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
+            {/* Calendar Section */}
+            <div className="lg:col-span-2">
+              <div className="bg-card rounded-2xl sm:rounded-3xl shadow-lg border border-border p-3 sm:p-4 md:p-6 lg:p-8">
+                {/* Calendar Header */}
+                <div className="flex items-center justify-between mb-4 sm:mb-6">
+                  <div>
+                    <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-card-foreground">
+                      {monthNames[currentDate.getMonth()]}
+                    </h2>
+                    <p className="text-muted-foreground text-sm sm:text-base md:text-lg">
+                      {currentDate.getFullYear()}
+                    </p>
                   </div>
-                ))}
-              </div>
+                  <div className="flex gap-1 sm:gap-2">
+                    <button
+                      onClick={handlePrevMonth}
+                      className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-muted hover:bg-accent transition-all duration-200 hover:scale-105"
+                    >
+                      <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-foreground" />
+                    </button>
+                    <button
+                      onClick={handleNextMonth}
+                      className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-muted hover:bg-accent transition-all duration-200 hover:scale-105"
+                    >
+                      <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-foreground" />
+                    </button>
+                  </div>
+                </div>
 
-              {/* Calendar Grid */}
-              <div className="grid grid-cols-7 gap-0.5 sm:gap-1 md:gap-2">
-                {renderCalendar()}
+                {/* Range Mode Toggle */}
+                <div className="mb-4 sm:mb-6 flex flex-wrap items-center gap-2 sm:gap-3">
+                  <button
+                    onClick={() => {
+                      setIsRangeMode(!isRangeMode);
+                      setRangeStart(null);
+                      setRangeEnd(null);
+                      setSelectedDate(null);
+                    }}
+                    className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 border-2 ${
+                      isRangeMode
+                        ? "bg-primary text-primary-foreground border-primary shadow-md"
+                        : "bg-card text-foreground border-border hover:bg-muted"
+                    }`}
+                  >
+                    <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span className="hidden xs:inline">
+                      {isRangeMode ? "Range Mode" : "Single Date"}
+                    </span>
+                    <span className="xs:hidden">
+                      {isRangeMode ? "Range" : "Single"}
+                    </span>
+                  </button>
+                  {isRangeMode && (
+                    <span className="text-[10px] sm:text-xs md:text-sm text-muted-foreground bg-muted px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-border">
+                      {!rangeStart && "Select start"}
+                      {rangeStart && !rangeEnd && "Select end"}
+                      {rangeStart && rangeEnd && (
+                        <span className="block sm:inline">
+                          <span className="hidden sm:inline">
+                            {rangeStart.toLocaleDateString()} -{" "}
+                            {rangeEnd.toLocaleDateString()}
+                          </span>
+                          <span className="sm:hidden">
+                            {rangeStart.getMonth() + 1}/{rangeStart.getDate()} -{" "}
+                            {rangeEnd.getMonth() + 1}/{rangeEnd.getDate()}
+                          </span>
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </div>
+
+                {/* Day Names */}
+                <div className="grid grid-cols-7 gap-0.5 sm:gap-1 md:gap-2 mb-2 sm:mb-3">
+                  {dayNames.map((day) => (
+                    <div
+                      key={day}
+                      className="text-center font-bold text-muted-foreground text-[10px] sm:text-xs md:text-sm py-1 sm:py-2"
+                    >
+                      <span className="hidden sm:inline">{day}</span>
+                      <span className="sm:hidden">{day.charAt(0)}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Calendar Grid */}
+                <div className="grid grid-cols-7 gap-0.5 sm:gap-1 md:gap-2">
+                  {renderCalendar()}
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Events Section */}
-          <div className="lg:col-span-1">
-            <div className="bg-card rounded-2xl sm:rounded-3xl shadow-lg border border-border p-3 sm:p-4 md:p-6 lg:sticky lg:top-8">
-              <h3 className="text-lg sm:text-xl md:text-2xl font-bold mb-3 sm:mb-4 text-card-foreground">
-                {rangeStart && rangeEnd ? (
-                  "Range Events"
-                ) : selectedDate ? (
-                  <span className="block sm:inline">
-                    <span className="hidden sm:inline">
-                      {selectedDate.toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </span>
-                    <span className="sm:hidden">
-                      {selectedDate.toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </span>
-                  </span>
-                ) : (
-                  "Select a Date"
-                )}
-              </h3>
-
-              {(selectedDate || (rangeStart && rangeEnd)) && (
-                <button
-                  onClick={() => setShowEventForm(!showEventForm)}
-                  className="w-full mb-3 sm:mb-4 flex items-center justify-center gap-1.5 sm:gap-2 bg-primary text-primary-foreground px-3 sm:px-4 py-2 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium hover:opacity-90 shadow-md transition-all duration-200 hover:scale-105"
-                >
-                  <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-                  Add Event
-                </button>
-              )}
-
-              {showEventForm && (selectedDate || (rangeStart && rangeEnd)) && (
-                <div className="mb-3 sm:mb-4 p-3 sm:p-4 bg-muted rounded-xl sm:rounded-2xl space-y-2 sm:space-y-3 border border-border">
-                  {rangeStart && rangeEnd && (
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={isRangeEvent}
-                        onChange={(e) => setIsRangeEvent(e.target.checked)}
-                        className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded accent-primary"
-                      />
-                      <span className="text-xs sm:text-sm font-medium text-foreground">
-                        Add to all dates
+            {/* Events Section */}
+            <div className="lg:col-span-1">
+              <div className="bg-card rounded-2xl sm:rounded-3xl shadow-lg border border-border p-3 sm:p-4 md:p-6 lg:sticky lg:top-8">
+                <h3 className="text-lg sm:text-xl md:text-2xl font-bold mb-3 sm:mb-4 text-card-foreground">
+                  {rangeStart && rangeEnd ? (
+                    "Range Events"
+                  ) : selectedDate ? (
+                    <span className="block sm:inline">
+                      <span className="hidden sm:inline">
+                        {selectedDate.toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
                       </span>
-                    </label>
+                      <span className="sm:hidden">
+                        {selectedDate.toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
+                    </span>
+                  ) : (
+                    "Select a Date"
                   )}
-                  <input
-                    type="text"
-                    placeholder="Event title"
-                    value={eventTitle}
-                    onChange={(e) => setEventTitle(e.target.value)}
-                    className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm bg-background border-2 border-input rounded-lg sm:rounded-xl focus:ring-2 focus:ring-ring focus:border-ring transition-all text-foreground placeholder:text-muted-foreground"
-                  />
-                  <input
-                    type="time"
-                    value={eventTime}
-                    onChange={(e) => setEventTime(e.target.value)}
-                    className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm bg-background border-2 border-input rounded-lg sm:rounded-xl focus:ring-2 focus:ring-ring focus:border-ring transition-all text-foreground"
-                  />
-                  <input
-                    type="url"
-                    placeholder="Meeting link"
-                    value={meetingLink}
-                    onChange={(e) => setMeetingLink(e.target.value)}
-                    className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm bg-background border-2 border-input rounded-lg sm:rounded-xl focus:ring-2 focus:ring-ring focus:border-ring transition-all text-foreground placeholder:text-muted-foreground"
-                  />
-                  <textarea
-                    placeholder="Description (optional)"
-                    value={eventDescription}
-                    onChange={(e) => setEventDescription(e.target.value)}
-                    className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm bg-background border-2 border-input rounded-lg sm:rounded-xl focus:ring-2 focus:ring-ring focus:border-ring transition-all resize-none text-foreground placeholder:text-muted-foreground"
-                    rows={2}
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleAddEvent}
-                      className="flex-1 bg-primary text-primary-foreground px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm rounded-lg sm:rounded-xl font-medium hover:opacity-90 shadow-md transition-all duration-200"
-                    >
-                      Save
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowEventForm(false);
-                        setIsRangeEvent(false);
-                      }}
-                      className="px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm bg-muted text-foreground rounded-lg sm:rounded-xl font-medium hover:bg-accent border-2 border-border transition-all"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
+                </h3>
 
-              <div className="space-y-2 sm:space-y-3 max-h-[400px] sm:max-h-[500px] overflow-y-auto custom-scrollbar">
-                {rangeStart && rangeEnd ? (
-                  rangeEvents.length === 0 ? (
+                {(selectedDate || (rangeStart && rangeEnd)) && (
+                  <button
+                    onClick={() => setShowEventForm(!showEventForm)}
+                    className="w-full mb-3 sm:mb-4 flex items-center justify-center gap-1.5 sm:gap-2 bg-primary text-primary-foreground px-3 sm:px-4 py-2 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium hover:opacity-90 shadow-md transition-all duration-200 hover:scale-105"
+                  >
+                    <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                    Add Event
+                  </button>
+                )}
+
+                {showEventForm &&
+                  (selectedDate || (rangeStart && rangeEnd)) && (
+                    <div className="mb-3 sm:mb-4 p-3 sm:p-4 bg-muted rounded-xl sm:rounded-2xl space-y-2 sm:space-y-3 border border-border">
+                      {rangeStart && rangeEnd && (
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={isRangeEvent}
+                            onChange={(e) => setIsRangeEvent(e.target.checked)}
+                            className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded accent-primary"
+                          />
+                          <span className="text-xs sm:text-sm font-medium text-foreground">
+                            Add to all dates
+                          </span>
+                        </label>
+                      )}
+                      <input
+                        type="text"
+                        placeholder="Event title"
+                        value={eventTitle}
+                        onChange={(e) => setEventTitle(e.target.value)}
+                        className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm bg-background border-2 border-input rounded-lg sm:rounded-xl focus:ring-2 focus:ring-ring focus:border-ring transition-all text-foreground placeholder:text-muted-foreground"
+                      />
+                      <input
+                        type="time"
+                        value={eventTime}
+                        onChange={(e) => setEventTime(e.target.value)}
+                        className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm bg-background border-2 border-input rounded-lg sm:rounded-xl focus:ring-2 focus:ring-ring focus:border-ring transition-all text-foreground"
+                      />
+                      <input
+                        type="url"
+                        placeholder="Meeting link"
+                        value={meetingLink}
+                        onChange={(e) => setMeetingLink(e.target.value)}
+                        className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm bg-background border-2 border-input rounded-lg sm:rounded-xl focus:ring-2 focus:ring-ring focus:border-ring transition-all text-foreground placeholder:text-muted-foreground"
+                      />
+                      <textarea
+                        placeholder="Description (optional)"
+                        value={eventDescription}
+                        onChange={(e) => setEventDescription(e.target.value)}
+                        className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm bg-background border-2 border-input rounded-lg sm:rounded-xl focus:ring-2 focus:ring-ring focus:border-ring transition-all resize-none text-foreground placeholder:text-muted-foreground"
+                        rows={2}
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleAddEvent}
+                          disabled={isSaving}
+                          className="flex-1 bg-primary text-primary-foreground px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm rounded-lg sm:rounded-xl font-medium hover:opacity-90 shadow-md transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          {isSaving ? "Saving..." : "Save"}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowEventForm(false);
+                            setIsRangeEvent(false);
+                          }}
+                          className="px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm bg-muted text-foreground rounded-lg sm:rounded-xl font-medium hover:bg-accent border-2 border-border transition-all"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                <div className="space-y-2 sm:space-y-3 max-h-[400px] sm:max-h-[500px] overflow-y-auto custom-scrollbar">
+                  {rangeStart && rangeEnd ? (
+                    rangeEvents.length === 0 ? (
+                      <div className="text-center py-8 sm:py-12">
+                        <Calendar className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-2 sm:mb-3 text-muted" />
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                          No events in this range
+                        </p>
+                      </div>
+                    ) : (
+                      rangeEvents.map((event) => (
+                        <EventCard
+                          key={`${event.date}-${event.id}`}
+                          event={event}
+                          dateKey={event.date}
+                        />
+                      ))
+                    )
+                  ) : selectedDateEvents.length === 0 ? (
                     <div className="text-center py-8 sm:py-12">
                       <Calendar className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-2 sm:mb-3 text-muted" />
                       <p className="text-xs sm:text-sm text-muted-foreground">
-                        No events in this range
+                        {selectedDate
+                          ? "No events scheduled"
+                          : "Select a date to view events"}
                       </p>
                     </div>
                   ) : (
-                    rangeEvents.map((event) => (
-                      <div
-                        key={`${event.date}-${event.id}`}
-                        className="p-3 sm:p-4 bg-card rounded-xl sm:rounded-2xl border-2 border-border hover:border-muted hover:shadow-md transition-all duration-200"
-                      >
-                        <div className="flex justify-between items-start mb-1.5 sm:mb-2">
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-bold text-card-foreground text-xs sm:text-sm truncate">
-                              {event.title}
-                            </h4>
-                            <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
-                              {event.date}
-                            </p>
-                          </div>
-                          <button
-                            onClick={() =>
-                              handleDeleteEvent(event.date, event.id)
-                            }
-                            className="text-destructive hover:bg-destructive/10 p-1 sm:p-1.5 rounded-lg transition-all flex-shrink-0 ml-2"
-                          >
-                            <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                          </button>
-                        </div>
-                        {event.time && (
-                          <div className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm text-muted-foreground mb-1.5 sm:mb-2">
-                            <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-primary flex-shrink-0" />
-                            <span className="truncate">{event.time}</span>
-                          </div>
-                        )}
-                        {event.meetingLink && (
-                          <div className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm mb-1.5 sm:mb-2">
-                            <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 text-primary flex-shrink-0" />
-                            <a
-                              href={event.meetingLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary hover:underline truncate"
-                            >
-                              Join Meeting
-                            </a>
-                          </div>
-                        )}
-                        {event.description && (
-                          <p className="text-[10px] sm:text-xs text-muted-foreground mt-1.5 sm:mt-2 line-clamp-2">
-                            {event.description}
-                          </p>
-                        )}
-                      </div>
+                    selectedDateEvents.map((event) => (
+                      <EventCard
+                        key={event.id}
+                        event={event}
+                        dateKey={selectedDateKey!}
+                      />
                     ))
-                  )
-                ) : selectedDateEvents.length === 0 ? (
-                  <div className="text-center py-8 sm:py-12">
-                    <Calendar className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-2 sm:mb-3 text-muted" />
-                    <p className="text-xs sm:text-sm text-muted-foreground">
-                      No events scheduled
-                    </p>
-                  </div>
-                ) : (
-                  selectedDateEvents.map((event) => (
-                    <div
-                      key={event.id}
-                      className="p-3 sm:p-4 bg-card rounded-xl sm:rounded-2xl border-2 border-border hover:border-muted hover:shadow-md transition-all duration-200"
-                    >
-                      <div className="flex justify-between items-start mb-1.5 sm:mb-2">
-                        <h4 className="font-bold text-card-foreground text-xs sm:text-sm flex-1 min-w-0 truncate">
-                          {event.title}
-                        </h4>
-                        <button
-                          onClick={() =>
-                            selectedDateKey &&
-                            handleDeleteEvent(selectedDateKey, event.id)
-                          }
-                          className="text-destructive hover:bg-destructive/10 p-1 sm:p-1.5 rounded-lg transition-all flex-shrink-0 ml-2"
-                        >
-                          <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                        </button>
-                      </div>
-                      {event.time && (
-                        <div className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm text-muted-foreground mb-1.5 sm:mb-2">
-                          <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-primary flex-shrink-0" />
-                          <span className="truncate">{event.time}</span>
-                        </div>
-                      )}
-                      {event.meetingLink && (
-                        <div className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm mb-1.5 sm:mb-2">
-                          <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 text-primary flex-shrink-0" />
-                          <a
-                            href={event.meetingLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline truncate"
-                          >
-                            Join Meeting
-                          </a>
-                        </div>
-                      )}
-                      {event.description && (
-                        <p className="text-[10px] sm:text-xs text-muted-foreground mt-1.5 sm:mt-2 line-clamp-2">
-                          {event.description}
-                        </p>
-                      )}
-                    </div>
-                  ))
-                )}
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

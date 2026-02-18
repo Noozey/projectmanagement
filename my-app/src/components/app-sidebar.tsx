@@ -55,7 +55,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       },
       {
         title: "Settings",
-        url: "#",
+        url: `/project/settings/${projectID}`,
         icon: Settings2,
       },
     ],
