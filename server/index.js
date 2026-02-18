@@ -37,6 +37,7 @@ app.use("/token", tokenRouter);
 app.use("/messages", messageRouter);
 
 const io = initSocket(server);
+app.set("socketio", io);
 registerSocketHandlers(io);
 
 server.listen(PORT, () => {

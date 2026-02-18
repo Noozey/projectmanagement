@@ -15,6 +15,7 @@ import {
 } from "./ui/dialog";
 import { api } from "@/lib/api";
 import { useProject } from "@/context/project";
+import { io } from "socket.io-client";
 
 // Types
 type User = {
@@ -39,6 +40,12 @@ type Column = {
   [key: string]: ColumnItem;
 };
 
+const socket = io("http://localhost:3001", {
+  auth: {
+    token: localStorage.getItem("token"),
+  },
+});
+
 export function Kanban() {
   const { projectID } = useProject();
   const [columns, setColumns] = useState<Column>({});
@@ -58,12 +65,6 @@ export function Kanban() {
     columnId: string;
     taskId: string;
   } | null>(null);
-
-  // Load kanban data and users
-  useEffect(() => {
-    loadKanbanData();
-    loadUsers();
-  }, [projectID]);
 
   const loadKanbanData = async () => {
     try {
@@ -86,6 +87,96 @@ export function Kanban() {
       setUsers([]);
     }
   };
+
+  useEffect(() => {
+    if (!projectID) return;
+
+    // 1. Connect and Join Room
+    if (!socket.connected) {
+      socket.connect();
+    }
+    socket.emit("join_project", projectID);
+
+    // --- TASK HANDLERS ---
+    const handleTaskUpdate = (updatedTask: any) => {
+      setColumns((prev) => {
+        const newColumns = { ...prev };
+        const taskId = updatedTask.id || updatedTask.taskId;
+
+        // Step 1: Remove the task from its current column (wherever it is)
+        Object.keys(newColumns).forEach((colId) => {
+          newColumns[colId].tasks = newColumns[colId].tasks.filter(
+            (t) => t.id !== taskId,
+          );
+        });
+
+        // Step 2: Add it to the target column (the backend sends column_id)
+        const targetColId = updatedTask.column_id;
+        if (newColumns[targetColId]) {
+          newColumns[targetColId].tasks.push({
+            id: taskId,
+            title: updatedTask.title,
+            description: updatedTask.description,
+            mentions: updatedTask.mentions || [], // Crucial for real-time avatars
+          });
+        }
+        return { ...newColumns };
+      });
+    };
+
+    const handleTaskDelete = ({ taskId }: { taskId: string }) => {
+      setColumns((prev) => {
+        const newColumns = { ...prev };
+        Object.keys(newColumns).forEach((colId) => {
+          newColumns[colId].tasks = newColumns[colId].tasks.filter(
+            (t) => t.id !== taskId,
+          );
+        });
+        return { ...newColumns };
+      });
+    };
+
+    // --- COLUMN HANDLERS ---
+    const handleColumnCreate = (newCol: any) => {
+      setColumns((prev) => ({
+        ...prev,
+        [newCol.id]: {
+          name: newCol.name,
+          tasks: [],
+        },
+      }));
+    };
+
+    const handleColumnDelete = ({ columnId }: { columnId: string }) => {
+      setColumns((prev) => {
+        const newColumns = { ...prev };
+        delete newColumns[columnId];
+        return { ...newColumns };
+      });
+    };
+
+    // 2. Register Listeners
+    socket.on("kanban_task_created", handleTaskUpdate); // Creation uses same logic as update
+    socket.on("kanban_task_updated", handleTaskUpdate);
+    socket.on("kanban_task_deleted", handleTaskDelete);
+    socket.on("kanban_column_created", handleColumnCreate);
+    socket.on("kanban_column_deleted", handleColumnDelete);
+
+    // 3. Cleanup
+    return () => {
+      socket.off("kanban_task_created", handleTaskUpdate);
+      socket.off("kanban_task_updated", handleTaskUpdate);
+      socket.off("kanban_task_deleted", handleTaskDelete);
+      socket.off("kanban_column_created", handleColumnCreate);
+      socket.off("kanban_column_deleted", handleColumnDelete);
+    };
+  }, [projectID]);
+
+  useEffect(() => {
+    if (!projectID) return;
+    loadKanbanData();
+    loadUsers();
+  }, [projectID]);
 
   // --- Column Actions ---
   const addNewColumn = async () => {

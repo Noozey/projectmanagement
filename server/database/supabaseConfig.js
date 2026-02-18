@@ -6,6 +6,12 @@ dotenv.config();
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabasekey = process.env.SUPABASE_KEY;
 
-const supabase = createClient(supabaseUrl, supabasekey);
+const supabase = createClient(supabaseUrl, supabasekey, {
+  realtime: {
+    params: {
+      eventsPerSecond: 10,
+    },
+  },
+});
 
 export { supabase };
