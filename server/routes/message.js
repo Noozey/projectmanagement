@@ -19,7 +19,6 @@ messageRouter.get("/:userId", authMiddleware, async (req, res) => {
 
   if (error) return res.status(500).json({ error: error.message });
 
-  // Map snake_case to camelCase for your frontend
   const messages = data.map((m) => ({
     id: m.id,
     senderId: m.sender_id,

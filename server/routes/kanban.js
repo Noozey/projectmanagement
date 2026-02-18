@@ -3,7 +3,7 @@ import { supabase } from "../database/supabaseConfig.js";
 
 const kanbanRouter = express.Router();
 
-// --- Helper for Socket Broadcasting ---
+// Helper for Socket Broadcasting
 const broadcast = (req, projectId, event, data) => {
   const io = req.app.get("socketio");
   if (io && projectId) {
@@ -11,7 +11,7 @@ const broadcast = (req, projectId, event, data) => {
   }
 };
 
-// 1. GET all columns and tasks
+// GET all columns and tasks
 kanbanRouter.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -60,7 +60,7 @@ kanbanRouter.get("/:id", async (req, res) => {
   }
 });
 
-// 2. GET project members
+// GET project members
 kanbanRouter.get("/:id/members", async (req, res) => {
   try {
     const { data: users, error } = await supabase
@@ -82,7 +82,7 @@ kanbanRouter.get("/:id/members", async (req, res) => {
   }
 });
 
-// 3. CREATE Column
+//CREATE Column
 kanbanRouter.post("/:id/columns", async (req, res) => {
   try {
     const { id } = req.params;
@@ -105,7 +105,6 @@ kanbanRouter.post("/:id/columns", async (req, res) => {
 
     if (error) throw error;
 
-    // Real-time: Send the full column structure
     broadcast(req, id, "kanban_column_created", {
       id: data.id,
       name: data.name,
@@ -118,7 +117,7 @@ kanbanRouter.post("/:id/columns", async (req, res) => {
   }
 });
 
-// 4. DELETE Column
+// DELETE Column
 kanbanRouter.delete("/:id/columns/:columnId", async (req, res) => {
   try {
     const { id, columnId } = req.params;
@@ -135,7 +134,7 @@ kanbanRouter.delete("/:id/columns/:columnId", async (req, res) => {
   }
 });
 
-// 5. CREATE Task
+// CREATE Task
 kanbanRouter.post("/:id/tasks", async (req, res) => {
   try {
     const { id } = req.params;
@@ -173,7 +172,6 @@ kanbanRouter.post("/:id/tasks", async (req, res) => {
       await supabase.from("kanban_task_mentions").insert(inserts);
     }
 
-    // Real-time: Attach mentions array to the task object before broadcasting
     broadcast(req, id, "kanban_task_created", {
       ...task,
       mentions: mentions || [],
@@ -185,7 +183,7 @@ kanbanRouter.post("/:id/tasks", async (req, res) => {
   }
 });
 
-// 6. UPDATE Task
+// UPDATE Task
 kanbanRouter.put("/:id/tasks/:taskId", async (req, res) => {
   try {
     const { id, taskId } = req.params;
@@ -200,7 +198,6 @@ kanbanRouter.put("/:id/tasks/:taskId", async (req, res) => {
 
     if (taskError) throw taskError;
 
-    // Sync Mentions
     await supabase.from("kanban_task_mentions").delete().eq("task_id", taskId);
     if (mentions?.length > 0) {
       const inserts = mentions.map((uId) => ({
@@ -210,7 +207,6 @@ kanbanRouter.put("/:id/tasks/:taskId", async (req, res) => {
       await supabase.from("kanban_task_mentions").insert(inserts);
     }
 
-    // Real-time: Send updated task with new mentions list
     broadcast(req, id, "kanban_task_updated", {
       ...task,
       mentions: mentions || [],
@@ -222,7 +218,7 @@ kanbanRouter.put("/:id/tasks/:taskId", async (req, res) => {
   }
 });
 
-// 7. DELETE Task
+// DELETE Task
 kanbanRouter.delete("/:id/tasks/:taskId", async (req, res) => {
   try {
     const { id, taskId } = req.params;
@@ -239,7 +235,7 @@ kanbanRouter.delete("/:id/tasks/:taskId", async (req, res) => {
   }
 });
 
-// 8. MOVE Task
+// MOVE Task
 kanbanRouter.put("/:id/tasks/:taskId/move", async (req, res) => {
   try {
     const { id, taskId } = req.params;
@@ -267,7 +263,6 @@ kanbanRouter.put("/:id/tasks/:taskId/move", async (req, res) => {
 
     if (error) throw error;
 
-    // Fetch existing mentions so the move doesn't clear them on other users' screens
     const { data: currentMentions } = await supabase
       .from("kanban_task_mentions")
       .select("user_id")

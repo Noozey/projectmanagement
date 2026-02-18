@@ -117,7 +117,7 @@ export function Kanban() {
             id: taskId,
             title: updatedTask.title,
             description: updatedTask.description,
-            mentions: updatedTask.mentions || [], // Crucial for real-time avatars
+            mentions: updatedTask.mentions || [],
           });
         }
         return { ...newColumns };
@@ -155,14 +155,14 @@ export function Kanban() {
       });
     };
 
-    // 2. Register Listeners
-    socket.on("kanban_task_created", handleTaskUpdate); // Creation uses same logic as update
+    // Register Listeners
+    socket.on("kanban_task_created", handleTaskUpdate);
     socket.on("kanban_task_updated", handleTaskUpdate);
     socket.on("kanban_task_deleted", handleTaskDelete);
     socket.on("kanban_column_created", handleColumnCreate);
     socket.on("kanban_column_deleted", handleColumnDelete);
 
-    // 3. Cleanup
+    // Cleanup
     return () => {
       socket.off("kanban_task_created", handleTaskUpdate);
       socket.off("kanban_task_updated", handleTaskUpdate);
@@ -178,7 +178,7 @@ export function Kanban() {
     loadUsers();
   }, [projectID]);
 
-  // --- Column Actions ---
+  // Column Actions
   const addNewColumn = async () => {
     if (newColumnName.trim() === "") return;
 
@@ -208,7 +208,7 @@ export function Kanban() {
     }
   };
 
-  // --- Task Actions ---
+  // Task Actions
   const handleOpenAddDialog = (colId: string) => {
     setActiveColumnId(colId);
     setEditingTaskId(null);
@@ -268,7 +268,7 @@ export function Kanban() {
     }
   };
 
-  // --- Drag & Drop ---
+  // Drag & Drop
   const handleDragStart = (columnId: string, taskId: string) =>
     setDraggedItem({ columnId, taskId });
 
