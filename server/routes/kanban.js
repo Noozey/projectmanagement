@@ -64,8 +64,8 @@ kanbanRouter.get("/:id", async (req, res) => {
 kanbanRouter.get("/:id/members", async (req, res) => {
   try {
     const { data: users, error } = await supabase
-      .from("registration")
-      .select("uid, name");
+      .from("projects")
+      .select("users");
 
     if (error) throw error;
 

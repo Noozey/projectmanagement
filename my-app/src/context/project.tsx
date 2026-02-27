@@ -23,7 +23,7 @@ export const ProjectProvider = ({ children }) => {
       const projectID = localStorage.getItem("project");
       if (!projectID) return;
 
-      const res = await api.get(`/project/${user.email}/${projectID}`);
+      const res = await api.get(`/project/${user.uid}/${projectID}`);
       setCurrentProject(res.data.message[0].name);
       setProjectID(res.data.message[0].uid);
     };

@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { FolderPlus, Users, FileText, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { useUser } from "@/context/user";
 
 export const Route = createFileRoute("/_authenticated/project/")({
   component: RouteComponent,
@@ -22,12 +23,18 @@ function RouteComponent() {
   const [durationUnit, setDurationUnit] = useState("");
   const [email, setEmail] = useState("");
 
-  const [projectManager, setProjectManager] = useState("");
+  const [projectManager, setProjectManager] = useState({
+    email: "",
+    name: "",
+    uid: "",
+  });
   const [teamMembers, setTeamMembers] = useState([
-    { id: 1, email: "", role: "" },
+    { id: 1, email: "", role: "", uid: "", name: "" },
   ]);
 
   const [users, setUsers] = useState();
+
+  const { user } = useUser();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -44,7 +51,10 @@ function RouteComponent() {
   }, [email]);
 
   const addTeamMember = () => {
-    setTeamMembers([...teamMembers, { id: Date.now(), email: "", role: "" }]);
+    setTeamMembers([
+      ...teamMembers,
+      { id: Date.now(), email: "", role: "", uid: "", name: "" },
+    ]);
   };
 
   const removeTeamMember = (id) => {
@@ -70,6 +80,7 @@ function RouteComponent() {
       duration: { value: durationValue, unit: durationUnit },
       projectManager,
       teamMembers,
+      creator: user,
     };
 
     await api.post("/project", { projectData }).then((res) => {
@@ -81,8 +92,8 @@ function RouteComponent() {
         setProjectPriority("");
         setDurationValue("");
         setDurationUnit("");
-        setProjectManager("");
-        setTeamMembers([{ id: 1, email: "", role: "" }]);
+        setProjectManager({ email: "", name: "", uid: "" });
+        setTeamMembers([{ id: 1, email: "", role: "", name: "", uid: "" }]);
       } else {
         toast(res.data.message);
       }
@@ -96,8 +107,8 @@ function RouteComponent() {
     setProjectPriority("");
     setDurationValue("");
     setDurationUnit("");
-    setProjectManager("");
-    setTeamMembers([{ id: 1, email: "", role: "" }]);
+    setProjectManager({ email: "", name: "", uid: "" });
+    setTeamMembers([{ id: 1, email: "", role: "", name: "", uid: "" }]);
   };
 
   return (
@@ -204,14 +215,17 @@ function RouteComponent() {
                   <Input
                     id="project-manager"
                     placeholder="Select or enter project manager"
-                    value={projectManager}
+                    value={projectManager.email}
                     onChange={(e) => {
                       setEmail(e.target.value);
-                      setProjectManager(e.target.value);
+                      setProjectManager((prev) => ({
+                        ...prev,
+                        email: e.target.value,
+                      }));
                     }}
                   />
 
-                  {users && email && projectManager === email && (
+                  {users && email && projectManager.email === email && (
                     <div className="absolute z-10 w-full mt-1 bg-card border rounded-md shadow-lg max-h-48 overflow-auto">
                       {Array.isArray(users) && users.length > 0 ? (
                         users.map((user, index) => (
@@ -219,7 +233,11 @@ function RouteComponent() {
                             key={index}
                             className="px-4 py-2 cursor-pointer"
                             onClick={() => {
-                              setProjectManager(user.email);
+                              setProjectManager({
+                                email: user.email || user,
+                                name: user.name || "",
+                                uid: user.uid || user.id || "",
+                              });
                               setEmail("");
                               setUsers(null);
                             }}
@@ -271,10 +289,18 @@ function RouteComponent() {
                                       key={index}
                                       className="px-4 py-2 cursor-pointer"
                                       onClick={() => {
-                                        updateTeamMember(
-                                          member.id,
-                                          "email",
-                                          user.email || user,
+                                        setTeamMembers((prev) =>
+                                          prev.map((m) =>
+                                            m.id === member.id
+                                              ? {
+                                                  ...m,
+                                                  email: user.email || user,
+                                                  name: user.name || "",
+                                                  uid:
+                                                    user.uid || user.id || "",
+                                                }
+                                              : m,
+                                          ),
                                         );
                                         setEmail("");
                                         setUsers(null);

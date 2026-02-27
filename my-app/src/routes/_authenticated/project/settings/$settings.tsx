@@ -90,16 +90,14 @@ function RouteComponent() {
   const [newMemberRole, setNewMemberRole] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState("");
 
-  // --- 1. DATA FETCHING ---
   useEffect(() => {
     const fetchProject = async () => {
-      // Avoid fetching if the ID is just the string "settings" or empty
       if (!projectId || projectId === "settings") return;
 
       try {
         setIsLoading(true);
         // Using the exact route structure from your Express backend
-        const res = await api.get(`/project/${user.email}/${projectId}`);
+        const res = await api.get(`/project/${user.uid}/${projectId}`);
         const data = res.data.message[0];
 
         if (data) {

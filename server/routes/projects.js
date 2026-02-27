@@ -7,10 +7,15 @@ const projectsRouter = express.Router();
 projectsRouter.post("/", async (req, res) => {
   const { projectData } = req.body;
 
-  // Preserve your logic but inject the manager as an Admin into the users array
   const initialUsers = [
     {
-      email: projectData.projectManager,
+      email: projectData.creator.email,
+      uid: projectData.creator.uid,
+      role: "Super",
+    },
+    {
+      email: projectData.projectManager.email,
+      uid: projectData.projectManager.uid,
       role: "Project Manager",
       permission: "admin",
     },
@@ -23,7 +28,7 @@ projectsRouter.post("/", async (req, res) => {
       description: projectData.projectDescription,
       category: projectData.projectCategory,
       priority: projectData.projectPriority,
-      manager: projectData.projectManager,
+      manager: projectData.projectManager.email,
       users: initialUsers, // Now includes manager with admin permission
       duration: projectData.duration,
       status: "active",
@@ -42,6 +47,7 @@ projectsRouter.post("/", async (req, res) => {
         editorsCanDelete: false,
         viewersCanComment: true,
       },
+      creator: projectData.creator,
     },
   ]);
 
@@ -63,24 +69,18 @@ projectsRouter.get("/:email/:id?", async (req, res) => {
     if (projectError || !projectData)
       return res.status(404).json({ error: "Project not found" });
 
-    const isManager = projectData.manager === email;
-    const isUser = projectData.users?.some((user) => user.email === email);
-    if (!isManager && !isUser)
-      return res.status(403).json({ error: "Access denied" });
+    const isUser = projectData.users?.some((user) => user.uid === email);
+    if (!isUser) return res.status(403).json({ error: "Access denied" });
 
     return res.status(200).json({ message: [projectData] });
   }
 
-  const { data: managerData } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("manager", email);
   const { data: usersData } = await supabase
     .from("projects")
     .select("*")
-    .contains("users", JSON.stringify([{ email: email }]));
+    .contains("users", JSON.stringify([{ uid: email }]));
 
-  const merged = [...(managerData || []), ...(usersData || [])].filter(
+  const merged = [...(usersData || [])].filter(
     (v, i, a) => a.findIndex((t) => t.id === v.id) === i,
   );
   return res.status(200).json({ message: merged });
@@ -116,6 +116,7 @@ projectsRouter.patch("/:id", async (req, res) => {
     })
     .eq("uid", id)
     .select();
+  console.log(error);
 
   if (error) return res.status(500).json({ error: error.message });
   res.status(200).json({ message: "Updated successfully", data });
