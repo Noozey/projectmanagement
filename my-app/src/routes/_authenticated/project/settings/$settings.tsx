@@ -22,7 +22,6 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { useUser } from "@/context/user";
 
-// Define the route with the $settings parameter
 export const Route = createFileRoute(
   "/_authenticated/project/settings/$settings",
 )({
@@ -49,7 +48,6 @@ const categoryOptions = [
 
 function RouteComponent() {
   const navigate = useNavigate();
-  // CRITICAL FIX: Grab ID from URL params, not Context, to prevent "wrong project" bug
   const { settings: projectId } = Route.useParams();
   const { user } = useUser();
 
@@ -86,9 +84,10 @@ function RouteComponent() {
   });
 
   // UI Helpers
-  const [newMemberEmail, setNewMemberEmail] = useState("");
+  const [email, setEmail] = useState("");
   const [newMemberRole, setNewMemberRole] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [users, setUsers] = useState("");
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -96,7 +95,6 @@ function RouteComponent() {
 
       try {
         setIsLoading(true);
-        // Using the exact route structure from your Express backend
         const res = await api.get(`/project/${user.uid}/${projectId}`);
         const data = res.data.message[0];
 
@@ -124,9 +122,22 @@ function RouteComponent() {
     };
 
     fetchProject();
-  }, [projectId, user.email]); // Re-run when the URL project ID changes
+  }, [projectId, user.email]);
 
-  // --- 2. SAVE LOGIC ---
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (email) {
+        api.post("/user/profile", { email }).then((res) => {
+          if ([200, 201, 202, 204].includes(res.status)) {
+            setUsers(res.data.message);
+          }
+        });
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [email]);
+
   const handleSave = async () => {
     try {
       setIsSaving(true);
@@ -153,14 +164,14 @@ function RouteComponent() {
 
   // --- 3. ACTIONS ---
   const addTeamMember = () => {
-    if (!newMemberEmail) return;
+    if (!email) return;
     const newMember = {
       id: Date.now(),
-      email: newMemberEmail,
+      email: email,
       role: newMemberRole || "Contributor",
     };
     setTeamMembers([...teamMembers, newMember]);
-    setNewMemberEmail("");
+    setEmail("");
     setNewMemberRole("");
   };
 
@@ -342,8 +353,8 @@ function RouteComponent() {
                 <div className="flex gap-2">
                   <Input
                     placeholder="Team Member Email"
-                    value={newMemberEmail}
-                    onChange={(e) => setNewMemberEmail(e.target.value)}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                   />
                   <Input
                     placeholder="Role"
@@ -353,6 +364,47 @@ function RouteComponent() {
                   <Button onClick={addTeamMember}>
                     <Plus className="w-4 h-4 mr-1" /> Add
                   </Button>
+                  {users && email === email && (
+                    <div className="absolute z-10 w-full mt-10 bg-card border rounded-md shadow-lg max-h-48 overflow-auto">
+                      {Array.isArray(users) && users.length > 0 ? (
+                        users.map((user, index) => (
+                          <div
+                            key={index}
+                            className="px-4 py-2 cursor-pointer"
+                            onClick={() => {
+                              setTeamMembers((prev) =>
+                                prev.map((m) =>
+                                  m.id === member.id
+                                    ? {
+                                        ...m,
+                                        email: user.email || user,
+                                        name: user.name || "",
+                                        uid: user.uid || user.id || "",
+                                      }
+                                    : m,
+                                ),
+                              );
+                              setEmail("");
+                              setUsers(null);
+                            }}
+                          >
+                            <div className="font-medium">
+                              {user.name || user.email || user}
+                            </div>
+                            {user.email && user.name && (
+                              <div className="text-sm text-gray-500">
+                                {user.email}
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="px-4 py-2 text-gray-500">
+                          No users found
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   {teamMembers.map((member) => (

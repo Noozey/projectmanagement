@@ -9,6 +9,15 @@ import { FolderPlus, Users, FileText, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { useUser } from "@/context/user";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/project/")({
   component: RouteComponent,
@@ -324,26 +333,26 @@ function RouteComponent() {
                               </div>
                             )}
                           </div>
-                          <Input
-                            placeholder="Role"
-                            className="w-40"
+
+                          <Select
                             value={member.role}
-                            onChange={(e) =>
-                              updateTeamMember(
-                                member.id,
-                                "role",
-                                e.target.value,
-                              )
+                            onValueChange={(value) =>
+                              updateTeamMember(member.id, "role", value)
                             }
-                          />
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="shrink-0 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
-                            onClick={() => removeTeamMember(member.id)}
                           >
-                            <X className="w-4 h-4" />
-                          </Button>
+                            <SelectTrigger className="w-full max-w-48">
+                              <SelectValue placeholder="Select a Role" />
+                            </SelectTrigger>
+
+                            <SelectContent>
+                              <SelectGroup>
+                                <SelectLabel>Roles</SelectLabel>
+                                <SelectItem value="Viewer">Viewer</SelectItem>
+                                <SelectItem value="Editor">Editor</SelectItem>
+                                <SelectItem value="Admin">Admin</SelectItem>
+                              </SelectGroup>
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
                     ))}

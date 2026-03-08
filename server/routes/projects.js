@@ -1,5 +1,7 @@
 import express from "express";
 import { supabase } from "../database/supabaseConfig.js";
+import { authMiddleware } from "../middleware/authMiddleware.js";
+import { authorize } from "../middleware/roleMiddleware.js";
 
 const projectsRouter = express.Router();
 
@@ -87,23 +89,13 @@ projectsRouter.get("/:email/:id?", async (req, res) => {
 });
 
 // --- UPDATE PROJECT ---
-projectsRouter.patch("/:id", async (req, res) => {
-  const { id } = req.params;
-  const {
-    name,
-    description,
-    category,
-    priority,
-    users,
-    duration,
-    status,
-    notifications,
-    permissions,
-  } = req.body;
-
-  const { data, error } = await supabase
-    .from("projects")
-    .update({
+projectsRouter.patch(
+  "/:id",
+  authMiddleware,
+  authorize(["Admin", "Super"]),
+  async (req, res) => {
+    const { id } = req.params;
+    const {
       name,
       description,
       category,
@@ -113,23 +105,43 @@ projectsRouter.patch("/:id", async (req, res) => {
       status,
       notifications,
       permissions,
-    })
-    .eq("uid", id)
-    .select();
-  console.log(error);
+    } = req.body;
 
-  if (error) return res.status(500).json({ error: error.message });
-  res.status(200).json({ message: "Updated successfully", data });
-});
+    const { data, error } = await supabase
+      .from("projects")
+      .update({
+        name,
+        description,
+        category,
+        priority,
+        users,
+        duration,
+        status,
+        notifications,
+        permissions,
+      })
+      .eq("uid", id)
+      .select();
+    console.log(error);
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.status(200).json({ message: "Updated successfully", data });
+  },
+);
 
 // --- DELETE PROJECT ---
-projectsRouter.delete("/:id", async (req, res) => {
-  const { error } = await supabase
-    .from("projects")
-    .delete()
-    .eq("uid", req.params.id);
-  if (error) return res.status(500).json({ error: error.message });
-  res.status(200).json({ message: "Project deleted" });
-});
+projectsRouter.delete(
+  "/:id",
+  authMiddleware,
+  authorize(["Admin", "Super"]),
+  async (req, res) => {
+    const { error } = await supabase
+      .from("projects")
+      .delete()
+      .eq("uid", req.params.id);
+    if (error) return res.status(500).json({ error: error.message });
+    res.status(200).json({ message: "Project deleted" });
+  },
+);
 
 export { projectsRouter };
