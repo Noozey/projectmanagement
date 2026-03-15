@@ -18,8 +18,7 @@ projectsRouter.post("/", async (req, res) => {
     {
       email: projectData.projectManager.email,
       uid: projectData.projectManager.uid,
-      role: "Project Manager",
-      permission: "admin",
+      role: "Admin",
     },
     ...(projectData.teamMembers || []),
   ];
@@ -95,17 +94,9 @@ projectsRouter.patch(
   authorize(["Admin", "Super"]),
   async (req, res) => {
     const { id } = req.params;
-    const {
-      name,
-      description,
-      category,
-      priority,
-      users,
-      duration,
-      status,
-      notifications,
-      permissions,
-    } = req.body;
+    const { name, description, category, priority, users, duration, status } =
+      req.body;
+    console.log(req.body);
 
     const { data, error } = await supabase
       .from("projects")
@@ -117,8 +108,6 @@ projectsRouter.patch(
         users,
         duration,
         status,
-        notifications,
-        permissions,
       })
       .eq("uid", id)
       .select();

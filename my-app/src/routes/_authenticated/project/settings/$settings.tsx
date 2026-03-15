@@ -1,16 +1,23 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Settings,
   Info,
   Users,
-  Shield,
-  Bell,
   X,
   Plus,
   AlertTriangle,
@@ -31,8 +38,6 @@ export const Route = createFileRoute(
 const navItems = [
   { id: "general", label: "General", icon: Info },
   { id: "team", label: "Team & Access", icon: Users },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "permissions", label: "Permissions", icon: Shield },
   { id: "danger", label: "Danger Zone", icon: AlertTriangle },
 ];
 
@@ -46,17 +51,17 @@ const categoryOptions = [
   "Other",
 ];
 
+const roleOptions = ["Viewer", "Editor", "Admin", "Contributor"];
+
 function RouteComponent() {
   const navigate = useNavigate();
   const { settings: projectId } = Route.useParams();
   const { user } = useUser();
 
-  // --- LOADING STATES ---
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [activeSection, setActiveSection] = useState("general");
 
-  // --- FORM STATE ---
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
   const [projectCategory, setProjectCategory] = useState("Other");
@@ -66,28 +71,15 @@ function RouteComponent() {
   const [projectStatus, setProjectStatus] = useState("active");
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
 
-  // Settings Objects (JSONB)
-  const [notifications, setNotifications] = useState({
-    taskAssigned: true,
-    taskCompleted: true,
-    memberJoined: false,
-    deadlineReminder: true,
-    statusChange: true,
-    weeklyDigest: false,
-  });
+  // UI Helpers — Add New Member
+  const [newMemberEmail, setNewMemberEmail] = useState("");
+  const [newMemberRole, setNewMemberRole] = useState("Viewer");
+  const [selectedNewMember, setSelectedNewMember] = useState<any>(null);
+  const [userSuggestions, setUserSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
 
-  const [permissions, setPermissions] = useState({
-    membersCanInvite: false,
-    publicVisibility: false,
-    editorsCanDelete: false,
-    viewersCanComment: true,
-  });
-
-  // UI Helpers
-  const [email, setEmail] = useState("");
-  const [newMemberRole, setNewMemberRole] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState("");
-  const [users, setUsers] = useState("");
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -110,8 +102,6 @@ function RouteComponent() {
             setDurationValue(data.duration.value || "");
             setDurationUnit(data.duration.unit || "");
           }
-          if (data.notifications) setNotifications(data.notifications);
-          if (data.permissions) setPermissions(data.permissions);
         }
       } catch (err) {
         console.error("Fetch Error:", err);
@@ -122,21 +112,50 @@ function RouteComponent() {
     };
 
     fetchProject();
-  }, [projectId, user.email]);
+  }, [projectId, user.uid]);
 
   useEffect(() => {
+    if (!newMemberEmail) {
+      setUserSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
     const timer = setTimeout(() => {
-      if (email) {
-        api.post("/user/profile", { email }).then((res) => {
-          if ([200, 201, 202, 204].includes(res.status)) {
-            setUsers(res.data.message);
-          }
-        });
-      }
+      api.post("/user/profile", { email: newMemberEmail }).then((res) => {
+        if ([200, 201, 202, 204].includes(res.status)) {
+          const results = res.data.message;
+          setUserSuggestions(Array.isArray(results) ? results : []);
+          setShowSuggestions(true);
+        }
+      });
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [email]);
+  }, [newMemberEmail]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        suggestionsRef.current &&
+        !suggestionsRef.current.contains(e.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // --- UPDATE EXISTING MEMBER ROLE ---
+  const updateMemberRole = (uid: string, email: string, newRole: string) => {
+    setTeamMembers((prev) =>
+      prev.map((m) => {
+        const isMatch = uid && m.uid ? m.uid === uid : m.email === email;
+        return isMatch ? { ...m, role: newRole } : m;
+      }),
+    );
+  };
 
   const handleSave = async () => {
     try {
@@ -147,10 +166,16 @@ function RouteComponent() {
         category: projectCategory,
         priority: projectPriority,
         status: projectStatus,
-        users: teamMembers,
+        users: teamMembers.map((m) => {
+          const clean: Record<string, any> = {
+            uid: m.uid || "",
+            email: m.email,
+            role: m.role || "Viewer",
+          };
+          if (m.permission) clean.permission = m.permission;
+          return clean;
+        }),
         duration: { value: durationValue, unit: durationUnit },
-        notifications,
-        permissions,
       };
 
       await api.patch(`/project/${projectId}`, payload);
@@ -162,35 +187,41 @@ function RouteComponent() {
     }
   };
 
-  // --- 3. ACTIONS ---
   const addTeamMember = () => {
-    if (!email) return;
-    const newMember = {
-      id: Date.now(),
-      email: email,
-      role: newMemberRole || "Contributor",
+    if (!newMemberEmail) {
+      toast.error("Please enter an email address.");
+      return;
+    }
+
+    const emailToAdd = selectedNewMember?.email || newMemberEmail;
+    const uidToAdd = selectedNewMember?.uid || selectedNewMember?.id || "";
+
+    const alreadyAdded = teamMembers.some((m) =>
+      uidToAdd ? m.uid === uidToAdd : m.email === emailToAdd,
+    );
+    if (alreadyAdded) {
+      toast.error("This member is already in the team.");
+      return;
+    }
+
+    const newMember: Record<string, any> = {
+      uid: uidToAdd,
+      email: emailToAdd,
+      role: newMemberRole || "Viewer",
     };
-    setTeamMembers([...teamMembers, newMember]);
-    setEmail("");
-    setNewMemberRole("");
+
+    setTeamMembers((prev) => [...prev, newMember]);
+    setNewMemberEmail("");
+    setNewMemberRole("Viewer");
+    setSelectedNewMember(null);
+    setUserSuggestions([]);
+    setShowSuggestions(false);
   };
 
-  const removeTeamMember = (id: number) => {
-    setTeamMembers(teamMembers.filter((m) => m.id !== id));
-  };
-
-  const toggleNotification = (key: string) => {
-    setNotifications((prev) => ({
-      ...prev,
-      [key]: !prev[key as keyof typeof prev],
-    }));
-  };
-
-  const togglePermission = (key: string) => {
-    setPermissions((prev) => ({
-      ...prev,
-      [key]: !prev[key as keyof typeof prev],
-    }));
+  const removeTeamMember = (uid: string, email: string) => {
+    setTeamMembers((prev) =>
+      prev.filter((m) => (uid && m.uid ? m.uid !== uid : m.email !== email)),
+    );
   };
 
   const handleDelete = async () => {
@@ -350,136 +381,183 @@ function RouteComponent() {
           {activeSection === "team" && (
             <Card className="shadow-lg">
               <CardContent className="p-8 space-y-6">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Team Member Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                  <Input
-                    placeholder="Role"
+                <h2 className="text-lg font-semibold">Add New Member</h2>
+
+                {/* Add Member Row */}
+                <div className="flex gap-2 items-start">
+                  {/* Email Input + Suggestions */}
+                  <div className="relative flex-1" ref={suggestionsRef}>
+                    <Input
+                      placeholder="Search by email or name"
+                      value={newMemberEmail}
+                      onChange={(e) => {
+                        setNewMemberEmail(e.target.value);
+                        if (
+                          selectedNewMember &&
+                          e.target.value !== selectedNewMember.email
+                        ) {
+                          setSelectedNewMember(null);
+                        }
+                      }}
+                      onFocus={() => {
+                        if (userSuggestions.length > 0)
+                          setShowSuggestions(true);
+                      }}
+                    />
+
+                    {/* Suggestions Dropdown */}
+                    {showSuggestions && (
+                      <div className="absolute z-20 w-full mt-1 bg-card border rounded-md shadow-lg max-h-48 overflow-auto">
+                        {userSuggestions.length > 0 ? (
+                          userSuggestions.map((u, index) => (
+                            <div
+                              key={u.uid || index}
+                              className="px-4 py-2 cursor-pointer hover:bg-accent transition-colors"
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                setSelectedNewMember(u);
+                                setNewMemberEmail(u.email || u);
+                                setShowSuggestions(false);
+                                setUserSuggestions([]);
+                              }}
+                            >
+                              <div className="font-medium text-sm">
+                                {u.name || u.email || u}
+                              </div>
+                              {u.email && u.name && (
+                                <div className="text-xs text-muted-foreground">
+                                  {u.email}
+                                </div>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="px-4 py-2 text-sm text-muted-foreground">
+                            No users found
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Role Dropdown for new member */}
+                  <Select
                     value={newMemberRole}
-                    onChange={(e) => setNewMemberRole(e.target.value)}
-                  />
-                  <Button onClick={addTeamMember}>
+                    onValueChange={(value) => setNewMemberRole(value)}
+                  >
+                    <SelectTrigger className="w-40 shrink-0">
+                      <SelectValue placeholder="Select a Role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>Roles</SelectLabel>
+                        {roleOptions.map((r) => (
+                          <SelectItem key={r} value={r}>
+                            {r}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+
+                  {/* Add Button */}
+                  <Button onClick={addTeamMember} className="shrink-0">
                     <Plus className="w-4 h-4 mr-1" /> Add
                   </Button>
-                  {users && email === email && (
-                    <div className="absolute z-10 w-full mt-10 bg-card border rounded-md shadow-lg max-h-48 overflow-auto">
-                      {Array.isArray(users) && users.length > 0 ? (
-                        users.map((user, index) => (
-                          <div
-                            key={index}
-                            className="px-4 py-2 cursor-pointer"
-                            onClick={() => {
-                              setTeamMembers((prev) =>
-                                prev.map((m) =>
-                                  m.id === member.id
-                                    ? {
-                                        ...m,
-                                        email: user.email || user,
-                                        name: user.name || "",
-                                        uid: user.uid || user.id || "",
-                                      }
-                                    : m,
-                                ),
-                              );
-                              setEmail("");
-                              setUsers(null);
-                            }}
-                          >
-                            <div className="font-medium">
-                              {user.name || user.email || user}
-                            </div>
-                            {user.email && user.name && (
-                              <div className="text-sm text-gray-500">
-                                {user.email}
-                              </div>
-                            )}
-                          </div>
-                        ))
-                      ) : (
-                        <div className="px-4 py-2 text-gray-500">
-                          No users found
+                </div>
+
+                {/* Selected user preview */}
+                {selectedNewMember && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+                    Selected:{" "}
+                    <span className="font-medium text-foreground">
+                      {selectedNewMember.name || selectedNewMember.email}
+                    </span>
+                    {selectedNewMember.name && (
+                      <span>({selectedNewMember.email})</span>
+                    )}
+                    <button
+                      className="ml-1 text-destructive hover:underline text-xs"
+                      onClick={() => {
+                        setSelectedNewMember(null);
+                        setNewMemberEmail("");
+                      }}
+                    >
+                      Clear
+                    </button>
+                  </div>
+                )}
+
+                {/* Current Team Members List */}
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-muted-foreground">
+                    Current Members ({teamMembers.length})
+                  </h3>
+                  {teamMembers.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-4 text-center border rounded-xl">
+                      No team members yet. Add one above.
+                    </p>
+                  ) : (
+                    teamMembers.map((member) => (
+                      <div
+                        key={member.uid || member.email}
+                        className="flex items-center justify-between p-3 border rounded-xl gap-3"
+                      >
+                        {/* Member Info */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {member.name || member.email}
+                          </p>
+                          {member.name && (
+                            <p className="text-xs text-muted-foreground truncate">
+                              {member.email}
+                            </p>
+                          )}
+                          {member.permission && (
+                            <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full mt-0.5 inline-block">
+                              {member.permission}
+                            </span>
+                          )}
                         </div>
-                      )}
-                    </div>
+
+                        {/* Role Dropdown — inline edit for existing member */}
+                        <Select
+                          value={member.role || "Viewer"}
+                          onValueChange={(value) =>
+                            updateMemberRole(member.uid, member.email, value)
+                          }
+                        >
+                          <SelectTrigger className="w-36 shrink-0">
+                            <SelectValue placeholder="Select a Role" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              <SelectLabel>Roles</SelectLabel>
+                              {roleOptions.map((r) => (
+                                <SelectItem key={r} value={r}>
+                                  {r}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+
+                        {/* Remove Button */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="shrink-0"
+                          onClick={() =>
+                            removeTeamMember(member.uid, member.email)
+                          }
+                        >
+                          <X className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
+                    ))
                   )}
                 </div>
-                <div className="space-y-2">
-                  {teamMembers.map((member) => (
-                    <div
-                      key={member.id}
-                      className="flex items-center justify-between p-3 border rounded-xl"
-                    >
-                      <div>
-                        <p className="text-sm font-medium">{member.email}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {member.role}
-                        </p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeTeamMember(member.id)}
-                      >
-                        <X className="w-4 h-4 text-destructive" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* NOTIFICATIONS SECTION */}
-          {activeSection === "notifications" && (
-            <Card className="shadow-lg">
-              <CardContent className="p-8 space-y-4">
-                {Object.entries(notifications).map(([key, value]) => (
-                  <div
-                    key={key}
-                    className="flex items-center justify-between p-4 border rounded-xl"
-                  >
-                    <Label className="capitalize">
-                      {key.replace(/([A-Z])/g, " $1")}
-                    </Label>
-                    <button
-                      onClick={() => toggleNotification(key)}
-                      className={`w-11 h-6 rounded-full transition-colors ${value ? "bg-primary" : "bg-border"} relative`}
-                    >
-                      <span
-                        className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${value ? "translate-x-5" : ""}`}
-                      />
-                    </button>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* PERMISSIONS SECTION */}
-          {activeSection === "permissions" && (
-            <Card className="shadow-lg">
-              <CardContent className="p-8 space-y-4">
-                {Object.entries(permissions).map(([key, value]) => (
-                  <div
-                    key={key}
-                    className="flex items-center justify-between p-4 border rounded-xl"
-                  >
-                    <Label className="capitalize">
-                      {key.replace(/([A-Z])/g, " $1")}
-                    </Label>
-                    <button
-                      onClick={() => togglePermission(key)}
-                      className={`w-11 h-6 rounded-full transition-colors ${value ? "bg-primary" : "bg-border"} relative`}
-                    >
-                      <span
-                        className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${value ? "translate-x-5" : ""}`}
-                      />
-                    </button>
-                  </div>
-                ))}
               </CardContent>
             </Card>
           )}

@@ -8,7 +8,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { useProject } from "@/context/project";
 
 export function NavMain({
   items,
@@ -24,10 +23,9 @@ export function NavMain({
     }[];
   }[];
 }) {
-  const { currentProject } = useProject();
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>{currentProject}</SidebarGroupLabel>
+      <SidebarGroupLabel>Main</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => (
           <Collapsible key={item.title} asChild defaultOpen={item.isActive}>

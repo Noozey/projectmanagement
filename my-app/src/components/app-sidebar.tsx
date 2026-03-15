@@ -37,27 +37,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         icon: LayoutDashboard,
         isActive: true,
       },
-      {
-        title: "Kanban Board",
-        url: `/project/task/${projectID}`,
-        icon: Table,
-        isActive: true,
-      },
-      {
-        title: "Calendar",
-        url: `/project/calendar/${projectID}`,
-        icon: CalendarDays,
-      },
-      {
-        title: "Message",
-        url: "/message",
-        icon: MessageCircle,
-      },
-      {
-        title: "Settings",
-        url: `/project/settings/${projectID}`,
-        icon: Settings2,
-      },
     ],
 
     Create: [
