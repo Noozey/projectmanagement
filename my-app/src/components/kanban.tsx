@@ -16,6 +16,7 @@ import {
 import { api } from "@/lib/api";
 import { useProject } from "@/context/project";
 import { io } from "socket.io-client";
+import { toast } from "sonner";
 
 // Types
 type User = {
@@ -191,6 +192,7 @@ export function Kanban() {
       setIsColumnDialogOpen(false);
       loadKanbanData();
     } catch (error) {
+      toast("You dont have access to edit data");
       console.error("Error creating column:", error);
     }
   };
@@ -203,6 +205,7 @@ export function Kanban() {
       delete updatedColumns[columnId];
       setColumns(updatedColumns);
     } catch (error) {
+      toast("You dont have access to edit data");
       console.error("Error deleting column:", error);
       loadKanbanData();
     }
@@ -249,6 +252,7 @@ export function Kanban() {
       setIsTaskDialogOpen(false);
       loadKanbanData();
     } catch (error) {
+      toast("You dont have access to edit data");
       console.error("Error saving task:", error);
     }
   };
@@ -264,6 +268,7 @@ export function Kanban() {
       setColumns(updated);
     } catch (error) {
       console.error("Error deleting task:", error);
+      toast("You dont have access to edit data");
       loadKanbanData();
     }
   };
@@ -300,6 +305,7 @@ export function Kanban() {
       });
     } catch (error) {
       console.error("Error moving task:", error);
+      toast("You dont have access to edit data");
       loadKanbanData();
     } finally {
       setDraggedItem(null);
