@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 
 import { NavMain } from "@/components/nav-main";
-import { NavProjects } from "@/components/nav-projects";
 import { NavUser } from "@/components/nav-user";
 import {
   Sidebar,
@@ -36,6 +35,27 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         url: `/project/dashboard/${projectID}`,
         icon: LayoutDashboard,
         isActive: true,
+      },
+      {
+        title: "Kanban Board",
+        url: `/project/task/${projectID}`,
+        icon: Table,
+        isActive: true,
+      },
+      {
+        title: "Calendar",
+        url: `/project/calendar/${projectID}`,
+        icon: CalendarDays,
+      },
+      {
+        title: "Message",
+        url: "/message",
+        icon: MessageCircle,
+      },
+      {
+        title: "Settings",
+        url: `/project/settings/${projectID}`,
+        icon: Settings2,
       },
     ],
 
@@ -71,7 +91,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavProjects />
         <NavCreate create={data.Create} />
       </SidebarContent>
       <SidebarFooter>
