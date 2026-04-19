@@ -482,7 +482,7 @@ function RouteComponent() {
                         key={item.dateKey + item.event.id}
                         className="px-4 py-2.5 flex items-start gap-3"
                       >
-                        <div className="shrink-0 text-center min-w-[36px]">
+                        <div className="shrink-0 text-center min-w-9">
                           <p className="text-[10px] text-muted-foreground leading-none">
                             {dateParts[0]}
                           </p>

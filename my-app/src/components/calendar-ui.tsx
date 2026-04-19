@@ -48,7 +48,6 @@ export function CalendarUI() {
 
   const { projectID } = useProject();
 
-  // ─── Fetch saved events on mount / when projectID changes ───────────────────
   useEffect(() => {
     if (!projectID) return;
 
@@ -71,7 +70,6 @@ export function CalendarUI() {
     fetchEvents();
   }, [projectID]);
 
-  // ─── Save to backend ─────────────────────────────────────────────────────────
   const saveToBackend = useCallback(
     async (updatedEvents: EventsMap) => {
       if (!projectID) return;
@@ -353,20 +351,20 @@ export function CalendarUI() {
         </div>
         <button
           onClick={() => handleDeleteEvent(dateKey, event.id)}
-          className="text-destructive hover:bg-destructive/10 p-1 sm:p-1.5 rounded-lg transition-all flex-shrink-0 ml-2"
+          className="text-destructive hover:bg-destructive/10 p-1 sm:p-1.5 rounded-lg transition-all shrink-0 ml-2"
         >
           <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
         </button>
       </div>
       {event.time && (
         <div className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm text-muted-foreground mb-1.5 sm:mb-2">
-          <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-primary flex-shrink-0" />
+          <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-primary shrink-0" />
           <span className="truncate">{event.time}</span>
         </div>
       )}
       {event.meetingLink && (
         <div className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm mb-1.5 sm:mb-2">
-          <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 text-primary flex-shrink-0" />
+          <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 text-primary shrink-0" />
           <a
             href={event.meetingLink}
             target="_blank"

@@ -38,7 +38,7 @@ export function NavMain({
   const [open, setOpen] = useState(true);
   const { user } = useUser();
   const { projectID, switchProject } = useProject();
-  const navigate = useNavigate(); // ✅ TanStack
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -57,7 +57,7 @@ export function NavMain({
     navigate({
       to: "/project/dashboard/$projectID",
       params: { projectID: String(project.url) },
-    }); // ✅ TanStack
+    });
   };
 
   return (

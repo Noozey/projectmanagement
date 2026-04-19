@@ -5,7 +5,6 @@ import { authorize } from "../middleware/roleMiddleware.js";
 
 const kanbanRouter = express.Router();
 
-// Helper for Socket Broadcasting
 const broadcast = (req, projectId, event, data) => {
   const io = req.app.get("socketio");
   if (io && projectId) {
@@ -13,7 +12,6 @@ const broadcast = (req, projectId, event, data) => {
   }
 };
 
-// GET all columns and tasks
 kanbanRouter.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -62,7 +60,6 @@ kanbanRouter.get("/:id", async (req, res) => {
   }
 });
 
-// GET project members
 kanbanRouter.get("/:id/members", async (req, res) => {
   try {
     const { data: users, error } = await supabase
@@ -84,7 +81,6 @@ kanbanRouter.get("/:id/members", async (req, res) => {
   }
 });
 
-//CREATE Column
 kanbanRouter.post(
   "/:id/columns",
   authMiddleware,
@@ -124,7 +120,6 @@ kanbanRouter.post(
   },
 );
 
-// DELETE Column
 kanbanRouter.delete(
   "/:id/columns/:columnId",
   authMiddleware,
@@ -146,7 +141,6 @@ kanbanRouter.delete(
   },
 );
 
-// CREATE Task
 kanbanRouter.post(
   "/:id/tasks",
   authMiddleware,
@@ -200,7 +194,6 @@ kanbanRouter.post(
   },
 );
 
-// UPDATE Task
 kanbanRouter.put(
   "/:id/tasks/:taskId",
   authMiddleware,
@@ -243,7 +236,6 @@ kanbanRouter.put(
   },
 );
 
-// DELETE Task
 kanbanRouter.delete(
   "/:id/tasks/:taskId",
   authMiddleware,
@@ -265,7 +257,6 @@ kanbanRouter.delete(
   },
 );
 
-// MOVE Task
 kanbanRouter.put(
   "/:id/tasks/:taskId/move",
   authMiddleware,

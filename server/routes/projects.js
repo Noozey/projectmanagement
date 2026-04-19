@@ -5,7 +5,6 @@ import { authorize } from "../middleware/roleMiddleware.js";
 
 const projectsRouter = express.Router();
 
-// --- CREATE PROJECT ---
 projectsRouter.post("/", async (req, res) => {
   const { projectData } = req.body;
 
@@ -57,7 +56,6 @@ projectsRouter.post("/", async (req, res) => {
   res.status(200).json({ message: "Project created successfully", data });
 });
 
-// --- GET PROJECTS ---
 projectsRouter.get("/:email/:id?", async (req, res) => {
   const { id, email } = req.params;
   if (id && id !== "undefined" && id !== "settings") {
@@ -87,7 +85,6 @@ projectsRouter.get("/:email/:id?", async (req, res) => {
   return res.status(200).json({ message: merged });
 });
 
-// --- UPDATE PROJECT ---
 projectsRouter.patch(
   "/:id",
   authMiddleware,

@@ -66,7 +66,6 @@ clanderRouter.post("/", async (req, res) => {
   }
 });
 
-// GET /calendar/:projectID - Fetch all events for a project
 clanderRouter.get("/:projectID", async (req, res) => {
   try {
     const { projectID } = req.params;

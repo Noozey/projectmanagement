@@ -17,6 +17,7 @@ import { api } from "@/lib/api";
 import { useProject } from "@/context/project";
 import { io } from "socket.io-client";
 import { toast } from "sonner";
+import { ScrollArea } from "./ui/scroll-area";
 
 // Types
 type User = {
@@ -425,104 +426,108 @@ export function Kanban() {
       </Dialog>
 
       {/* Kanban Scroll Area */}
-      <div className="flex flex-row gap-6 pb-6 flex-wrap items-start justify-center">
-        {Object.entries(columns).map(([columnId, column]) => (
-          <div
-            key={columnId}
-            className="bg-secondary p-4 rounded-lg shadow-md border border-border min-w-[320px] max-w-[320px] flex-shrink-0"
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, columnId)}
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="font-bold text-foreground truncate max-w-[180px]">
-                {column.name}
-              </h2>
-              <div className="flex gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleOpenAddDialog(columnId)}
-                  className="h-8 w-8 hover:bg-accent"
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => deleteColumn(columnId)}
-                  className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                >
-                  <Trash className="h-4 w-4" />
-                </Button>
+      <ScrollArea className="h-[85vh]">
+        <div className="flex flex-row gap-6 pb-6 flex-wrap items-start justify-center h-screen mb-96">
+          {Object.entries(columns).map(([columnId, column]) => (
+            <div
+              key={columnId}
+              className="bg-secondary p-4 rounded-lg shadow-md border border-border min-w-[320px] max-w-[320px] shrink-0"
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, columnId)}
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="font-bold text-foreground truncate max-w-[180px]">
+                  {column.name}
+                </h2>
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleOpenAddDialog(columnId)}
+                    className="h-8 w-8 hover:bg-accent"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => deleteColumn(columnId)}
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="flex flex-col gap-3 min-h-[100px]">
+                <AnimatePresence mode="popLayout">
+                  {column.tasks.map((task) => (
+                    <motion.div
+                      draggable
+                      layoutId={task.id}
+                      key={task.id}
+                      className="hover:shadow-md cursor-move group hover:border-none"
+                      initial={{ y: -10, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1, scale: 1 }}
+                      exit={{ x: "-100%", scale: 0.5, opacity: 0 }}
+                      onDragStart={() => handleDragStart(columnId, task.id)}
+                    >
+                      <Card className="p-4 bg-card border-border group relative cursor-grab">
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="text-sm font-semibold pr-12">
+                            {task.title}
+                          </span>
+                          <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground"
+                              onClick={() =>
+                                handleOpenEditDialog(columnId, task)
+                              }
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive"
+                              onClick={() => deleteTask(columnId, task.id)}
+                            >
+                              <Trash className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                        {task.description && (
+                          <p className="text-xs text-muted-foreground line-clamp-2 mb-2 flex items-start gap-1">
+                            <AlignLeft className="h-3 w-3 shrink-0 mt-0.5" />
+                            {task.description}
+                          </p>
+                        )}
+                        {task.mentions?.length && users.length > 0 ? (
+                          <div className="flex -space-x-2 pt-2 border-t border-border mt-2">
+                            {task.mentions.map((uId) => {
+                              const user = users.find((u) => u.id === uId);
+                              return user ? (
+                                <div
+                                  key={uId}
+                                  className="h-6 w-6 rounded-full border-2 border-card bg-primary text-[10px] flex items-center justify-center font-bold text-primary-foreground"
+                                  title={user.name}
+                                >
+                                  {user.initial}
+                                </div>
+                              ) : null;
+                            })}
+                          </div>
+                        ) : null}
+                      </Card>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
               </div>
             </div>
-            <div className="flex flex-col gap-3 min-h-[100px]">
-              <AnimatePresence mode="popLayout">
-                {column.tasks.map((task) => (
-                  <motion.div
-                    draggable
-                    layoutId={task.id}
-                    key={task.id}
-                    className="hover:shadow-md cursor-move group hover:border-none"
-                    initial={{ y: -10, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1, scale: 1 }}
-                    exit={{ x: "-100%", scale: 0.5, opacity: 0 }}
-                    onDragStart={() => handleDragStart(columnId, task.id)}
-                  >
-                    <Card className="p-4 bg-card border-border group relative cursor-grab">
-                      <div className="flex justify-between items-start mb-2">
-                        <span className="text-sm font-semibold pr-12">
-                          {task.title}
-                        </span>
-                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-muted-foreground"
-                            onClick={() => handleOpenEditDialog(columnId, task)}
-                          >
-                            <Pencil className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-destructive"
-                            onClick={() => deleteTask(columnId, task.id)}
-                          >
-                            <Trash className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-                      {task.description && (
-                        <p className="text-xs text-muted-foreground line-clamp-2 mb-2 flex items-start gap-1">
-                          <AlignLeft className="h-3 w-3 shrink-0 mt-0.5" />
-                          {task.description}
-                        </p>
-                      )}
-                      {task.mentions?.length && users.length > 0 ? (
-                        <div className="flex -space-x-2 pt-2 border-t border-border mt-2">
-                          {task.mentions.map((uId) => {
-                            const user = users.find((u) => u.id === uId);
-                            return user ? (
-                              <div
-                                key={uId}
-                                className="h-6 w-6 rounded-full border-2 border-card bg-primary text-[10px] flex items-center justify-center font-bold text-primary-foreground"
-                                title={user.name}
-                              >
-                                {user.initial}
-                              </div>
-                            ) : null;
-                          })}
-                        </div>
-                      ) : null}
-                    </Card>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </ScrollArea>
     </div>
   );
 }

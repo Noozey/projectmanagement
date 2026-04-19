@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -83,7 +83,6 @@ function RouteComponent() {
   const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = useState("all");
 
   useEffect(
     function () {
@@ -118,15 +117,6 @@ function RouteComponent() {
     [projectID, user?.uid],
   );
 
-  const filters = ["all", "active", "at-risk", "done", "inactive"];
-
-  const filteredProjects =
-    activeFilter === "all"
-      ? allProjects
-      : allProjects.filter(function (p) {
-          return p.status === activeFilter;
-        });
-
   const activeCount = allProjects.filter(function (p) {
     return p.status === "active";
   }).length;
@@ -155,9 +145,6 @@ function RouteComponent() {
       </div>
     );
   }
-
-  const st = statusMap[project.status] || statusMap["inactive"];
-  const pStyle = priorityStyles[project.priority] || "";
 
   return (
     <div className="p-6 space-y-6 min-h-screen">
@@ -234,26 +221,24 @@ function RouteComponent() {
             </div>
 
             <div className="divide-y">
-              {filteredProjects.map(function (p) {
+              {allProjects.map(function (p) {
                 const pst = statusMap[p.status] || statusMap["inactive"];
                 const ppStyle = priorityStyles[p.priority] || "";
-                const isCurrent = p.uid === projectID;
-                const rowClass = isCurrent
-                  ? "px-4 py-3 hover:bg-accent/30 transition-colors group cursor-pointer bg-primary/5 border-l-2 border-l-primary"
-                  : "px-4 py-3 hover:bg-accent/30 transition-colors group cursor-pointer";
+                const rowClass =
+                  "block px-4 py-3 hover:bg-accent/30 transition-colors group cursor-pointer";
                 return (
-                  <div key={p.uid} className={rowClass}>
+                  <Link
+                    key={p.uid}
+                    className={rowClass}
+                    to="/project/dashboard/$dashboard"
+                    params={{ dashboard: p.uid }}
+                  >
                     <div className="flex items-center gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-medium truncate">
                             {p.name}
                           </p>
-                          {isCurrent && (
-                            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-semibold shrink-0">
-                              Current
-                            </span>
-                          )}
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span
@@ -292,7 +277,7 @@ function RouteComponent() {
                       </div>
                       <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
