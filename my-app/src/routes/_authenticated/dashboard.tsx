@@ -13,16 +13,14 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useUser } from "@/context/user";
-import { useProject } from "@/context/project";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: RouteComponent,
 });
 
 type ProjectUser = { email: string; uid: string; role: string };
-
 type Duration = { value: number; unit: string } | string | null;
-
 type Project = {
   uid: string;
   name: string;
@@ -77,52 +75,43 @@ function formatDuration(duration: Duration): string {
 
 function RouteComponent() {
   const { user } = useUser();
-  const { projectID } = useProject();
-
-  const [project, setProject] = useState<Project | null>(null);
   const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(
-    function () {
-      if (!user?.uid) return;
-      api.get("/project/" + user.uid).then(function (res) {
+  useEffect(() => {
+    if (!user?.uid) return;
+    setLoading(true);
+    setError(null);
+    api
+      .get("/project/" + user.uid)
+      .then((res) => {
         setAllProjects(res.data.message || []);
-      });
-    },
-    [user?.uid],
-  );
-
-  useEffect(
-    function () {
-      if (!user?.uid || !projectID) {
+      })
+      .catch(() => {
+        setError("Failed to load projects.");
+      })
+      .finally(() => {
         setLoading(false);
-        return;
-      }
-      setLoading(true);
-      setError(null);
-      api
-        .get("/project/" + user.uid + "/" + projectID)
-        .then(function (res) {
-          setProject(res.data.message[0]);
-        })
-        .catch(function () {
-          setError("Failed to load project.");
-        })
-        .finally(function () {
-          setLoading(false);
-        });
-    },
-    [projectID, user?.uid],
-  );
+      });
+  }, [user?.uid]);
 
-  const activeCount = allProjects.filter(function (p) {
-    return p.status === "active";
-  }).length;
-  const atRiskCount = allProjects.filter(function (p) {
-    return p.status === "at-risk";
-  }).length;
+  // Stats
+  const activeCount = allProjects.filter((p) => p.status === "active").length;
+  const atRiskCount = allProjects.filter(
+    (p) => p.priority === "Critical",
+  ).length;
+
+  // Unique members across all projects
+  const uniqueMembersMap = new Map<string, ProjectUser>();
+  allProjects.forEach((p) => {
+    (p.users || []).forEach((u) => {
+      if (!uniqueMembersMap.has(u.uid)) {
+        uniqueMembersMap.set(u.uid, u);
+      }
+    });
+  });
+  const uniqueMemberList = Array.from(uniqueMembersMap.values());
 
   if (loading) {
     return (
@@ -132,15 +121,13 @@ function RouteComponent() {
     );
   }
 
-  if (error || !project) {
+  if (error) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center space-y-2">
           <AlertCircle className="w-8 h-8 text-destructive mx-auto" />
-          <p className="font-medium">Failed to load project</p>
-          <p className="text-sm text-muted-foreground">
-            {error ? error : "Project not found."}
-          </p>
+          <p className="font-medium">Failed to load projects</p>
+          <p className="text-sm text-muted-foreground">{error}</p>
         </div>
       </div>
     );
@@ -148,18 +135,18 @@ function RouteComponent() {
 
   return (
     <div className="p-6 space-y-6 min-h-screen">
+      {/* Header */}
       <div className="space-y-1">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <LayoutDashboard className="h-8 w-8" />
-            Dashboard
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            View Details About Project your are involved in.
-          </p>
-        </div>
+        <h1 className="text-3xl font-bold flex items-center gap-2">
+          <LayoutDashboard className="h-8 w-8" />
+          Dashboard
+        </h1>
+        <p className="text-muted-foreground mt-1">
+          View details about projects you are involved in.
+        </p>
       </div>
 
+      {/* Stat Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card className="shadow-none border">
           <CardContent className="p-4 flex items-center gap-3">
@@ -176,6 +163,7 @@ function RouteComponent() {
             </div>
           </CardContent>
         </Card>
+
         <Card className="shadow-none border">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
@@ -187,6 +175,7 @@ function RouteComponent() {
             </div>
           </CardContent>
         </Card>
+
         <Card className="shadow-none border">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
@@ -194,10 +183,11 @@ function RouteComponent() {
             </div>
             <div>
               <p className="text-xl font-bold leading-none">{atRiskCount}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">At Risk</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Critical</p>
             </div>
           </CardContent>
         </Card>
+
         <Card className="shadow-none border">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
@@ -205,7 +195,7 @@ function RouteComponent() {
             </div>
             <div>
               <p className="text-xl font-bold leading-none">
-                {project.users ? project.users.length : 0}
+                {uniqueMemberList.length}
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">Members</p>
             </div>
@@ -213,33 +203,33 @@ function RouteComponent() {
         </Card>
       </div>
 
+      {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* All Projects Table */}
         <Card className="shadow-none border lg:col-span-2">
           <CardContent className="p-0">
             <div className="flex items-center justify-between px-4 py-3 border-b">
               <p className="text-sm font-semibold">All Projects</p>
             </div>
-
             <div className="divide-y">
-              {allProjects.map(function (p) {
+              {allProjects.length === 0 && (
+                <p className="text-sm text-muted-foreground px-4 py-6 text-center">
+                  No projects found.
+                </p>
+              )}
+              {allProjects.map((p) => {
                 const pst = statusMap[p.status] || statusMap["inactive"];
                 const ppStyle = priorityStyles[p.priority] || "";
-                const rowClass =
-                  "block px-4 py-3 hover:bg-accent/30 transition-colors group cursor-pointer";
                 return (
                   <Link
                     key={p.uid}
-                    className={rowClass}
-                    to="/project/dashboard/$dashboard"
-                    params={{ dashboard: p.uid }}
+                    className="block px-4 py-3 hover:bg-accent/30 transition-colors group cursor-pointer"
+                    to="/project/dashboard/$projectID"
+                    params={{ projectID: p.uid }}
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium truncate">
-                            {p.name}
-                          </p>
-                        </div>
+                        <p className="text-sm font-medium truncate">{p.name}</p>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span
                             className={
@@ -284,24 +274,25 @@ function RouteComponent() {
           </CardContent>
         </Card>
 
+        {/* Team Members */}
         <div className="space-y-4">
           <Card className="shadow-none border">
             <CardContent className="p-0">
               <div className="px-4 py-3 border-b">
                 <p className="text-sm font-semibold">Team Members</p>
                 <p className="text-xs text-muted-foreground">
-                  {project.users ? project.users.length : 0} people
+                  {uniqueMemberList.length} people across all projects
                 </p>
               </div>
-              <div className="divide-y max-h-52 overflow-y-auto">
-                {project.users &&
-                  project.users.map(function (member, i) {
-                    const initial =
-                      member && member.email && member.email[0]
-                        ? member.email[0].toUpperCase()
-                        : "?";
-                    const email =
-                      member && member.email ? member.email : "Unknown";
+              <ScrollArea>
+                <div className="divide-y max-h-52">
+                  {uniqueMemberList.length === 0 && (
+                    <p className="text-sm text-muted-foreground px-4 py-6 text-center">
+                      No members found.
+                    </p>
+                  )}
+                  {uniqueMemberList.map((member, i) => {
+                    const initial = member.email?.[0]?.toUpperCase() ?? "?";
                     const roleBg =
                       member.role === "Super"
                         ? "bg-primary/10 text-primary"
@@ -310,7 +301,7 @@ function RouteComponent() {
                           : "bg-muted text-muted-foreground";
                     return (
                       <div
-                        key={i}
+                        key={member.uid ?? i}
                         className="px-4 py-2.5 flex items-center gap-2.5"
                       >
                         <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
@@ -318,7 +309,7 @@ function RouteComponent() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium truncate">
-                            {email}
+                            {member.email}
                           </p>
                         </div>
                         <span
@@ -332,7 +323,8 @@ function RouteComponent() {
                       </div>
                     );
                   })}
-              </div>
+                </div>
+              </ScrollArea>
             </CardContent>
           </Card>
         </div>

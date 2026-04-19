@@ -19,7 +19,7 @@ import { useProject } from "@/context/project";
 import { useUser } from "@/context/user";
 import { api } from "@/lib/api";
 import { useEffect, useState } from "react";
-import { useNavigate } from "@tanstack/react-router"; // ✅ TanStack
+import { useNavigate, useLocation } from "@tanstack/react-router";
 
 type ProjectData = { name: string; url: number };
 type Project = { [key: string]: any };
@@ -35,10 +35,11 @@ export function NavMain({
   }[];
 }) {
   const [projects, setProjects] = useState<ProjectData[]>([]);
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const { user } = useUser();
   const { projectID, switchProject } = useProject();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -52,24 +53,34 @@ export function NavMain({
     });
   }, [user]);
 
+  const activeProject = projects.find(
+    (p) => String(p.url) === String(projectID),
+  );
+
   const handleProjectSwitch = (project: ProjectData) => {
     switchProject(String(project.url));
     navigate({
       to: "/project/dashboard/$projectID",
       params: { projectID: String(project.url) },
     });
+    setOpen(false);
   };
 
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Main</SidebarGroupLabel>
       <SidebarMenu>
+        {/* Project switcher */}
         <Collapsible open={open} onOpenChange={setOpen}>
           <SidebarMenuItem>
             <CollapsibleTrigger asChild>
               <SidebarMenuButton tooltip="Select Project">
                 <FolderKanban />
-                <span>Projects</span>
+                <span>
+                  {activeProject
+                    ? activeProject.name.split(" ").slice(0, 2).join(" ")
+                    : "Projects"}
+                </span>
                 <ChevronDown
                   className="ml-auto transition-transform duration-200"
                   style={{
@@ -105,18 +116,25 @@ export function NavMain({
           </SidebarMenuItem>
         </Collapsible>
 
-        {items.map((item) => (
-          <Collapsible key={item.title} asChild defaultOpen={item.isActive}>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip={item.title}>
+        {/* Nav items */}
+        {items.map((item) => {
+          const isActive = location.pathname.startsWith(item.url);
+
+          return (
+            <SidebarMenuItem key={item.title}>
+              <SidebarMenuButton
+                asChild
+                tooltip={item.title}
+                isActive={isActive}
+              >
                 <a href={item.url}>
                   <item.icon />
                   <span>{item.title}</span>
                 </a>
               </SidebarMenuButton>
             </SidebarMenuItem>
-          </Collapsible>
-        ))}
+          );
+        })}
       </SidebarMenu>
     </SidebarGroup>
   );

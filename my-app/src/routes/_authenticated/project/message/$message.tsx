@@ -7,6 +7,7 @@ import { MessageCircle, Send } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { io } from "socket.io-client";
 import { useUser } from "@/context/user";
+import { useProject } from "@/context/project";
 
 const socket = io("http://localhost:3001", {
   auth: {
@@ -14,7 +15,9 @@ const socket = io("http://localhost:3001", {
   },
 });
 
-export const Route = createFileRoute("/_authenticated/message/")({
+export const Route = createFileRoute(
+  "/_authenticated/project/message/$message",
+)({
   component: RouteComponent,
 });
 
@@ -23,6 +26,7 @@ function RouteComponent() {
 }
 
 function Message() {
+  const { projectID } = useProject();
   const [user, setUser] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(null);
@@ -60,14 +64,13 @@ function Message() {
   }, []);
 
   useEffect(() => {
-    const getUser = async () => {
-      const users = await api.get("/user").then((res) => {
-        return res.data.message;
-      });
-      setUser(users);
+    const getProjectMembers = async () => {
+      if (!projectID) return;
+      const res = await api.get(`/kanban/${projectID}/members`);
+      setUser(res.data);
     };
-    getUser();
-  }, []);
+    getProjectMembers();
+  }, [projectID]);
 
   // Load chat history when a user is selected
   useEffect(() => {
@@ -157,7 +160,7 @@ function Message() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p
-                      className={`font-medium ${isSelected ? "text-accent-foreground" : "text-foreground group-hover:text-accent-foreground"}`}
+                      className={`font-medium ${isSelected ? `text-accent-foreground` : `text-foreground group-hover:text-accent-foreground`}`}
                     >
                       {value.name}
                     </p>
@@ -171,7 +174,6 @@ function Message() {
           })}
         </div>
       </div>
-
       {/* Message Area */}
       <div className="flex-1 flex flex-col bg-background rounded-r-2xl">
         {selectedUser ? (
@@ -213,7 +215,7 @@ function Message() {
                     return (
                       <div
                         key={index}
-                        className={`flex ${isSentByMe ? "justify-end" : "justify-start"}`}
+                        className={`flex ${isSentByMe ? `justify-end` : `justify-start`}`}
                       >
                         <div
                           className={`max-w-[70%] rounded-lg px-4 py-2 ${

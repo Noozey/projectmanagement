@@ -62,21 +62,38 @@ kanbanRouter.get("/:id", async (req, res) => {
 
 kanbanRouter.get("/:id/members", async (req, res) => {
   try {
-    const { data: users, error } = await supabase
+    const { data: project, error } = await supabase
       .from("projects")
-      .select("users");
+      .select("users")
+      .eq("uid", req.params.id)
+      .single();
 
     if (error) throw error;
 
-    const formattedUsers =
-      users?.map((user) => ({
-        id: user.uid,
-        name: user.name || "Unknown",
-        initial: (user.name || "?").charAt(0).toUpperCase(),
-      })) || [];
+    const uniqueUsers = [
+      ...new Map((project?.users || []).map((u) => [u.uid, u])).values(),
+    ];
 
-    res.json(formattedUsers);
-  } catch (error) {
+    const uids = uniqueUsers.map((u) => u.uid);
+
+    const { data: registrations, error: regError } = await supabase
+      .from("registration")
+      .select("uid, name")
+      .in("uid", uids);
+
+    if (regError) throw regError;
+
+    const nameMap = new Map(registrations.map((r) => [r.uid, r.name]));
+
+    res.json(
+      uniqueUsers.map(({ uid }) => ({
+        id: uid,
+        uid,
+        name: nameMap.get(uid) || "Unknown",
+        initial: (nameMap.get(uid)?.charAt(0) || "?").toUpperCase(),
+      })),
+    );
+  } catch {
     res.status(500).json({ error: "Failed to fetch members" });
   }
 });

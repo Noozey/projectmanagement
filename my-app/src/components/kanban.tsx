@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
@@ -191,7 +191,6 @@ export function Kanban() {
 
       setNewColumnName("");
       setIsColumnDialogOpen(false);
-      loadKanbanData();
     } catch (error) {
       toast("You dont have access to edit data");
       console.error("Error creating column:", error);
@@ -208,7 +207,6 @@ export function Kanban() {
     } catch (error) {
       toast("You dont have access to edit data");
       console.error("Error deleting column:", error);
-      loadKanbanData();
     }
   };
 
@@ -251,7 +249,6 @@ export function Kanban() {
       }
 
       setIsTaskDialogOpen(false);
-      loadKanbanData();
     } catch (error) {
       toast("You dont have access to edit data");
       console.error("Error saving task:", error);
@@ -270,7 +267,6 @@ export function Kanban() {
     } catch (error) {
       console.error("Error deleting task:", error);
       toast("You dont have access to edit data");
-      loadKanbanData();
     }
   };
 

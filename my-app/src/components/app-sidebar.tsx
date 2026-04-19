@@ -49,7 +49,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       },
       {
         title: "Message",
-        url: "/message",
+        url: `/project/message/${projectID}`,
         icon: MessageCircle,
       },
       {

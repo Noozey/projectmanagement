@@ -58,6 +58,7 @@ projectsRouter.post("/", async (req, res) => {
 
 projectsRouter.get("/:email/:id?", async (req, res) => {
   const { id, email } = req.params;
+
   if (id && id !== "undefined" && id !== "settings") {
     const { data: projectData, error: projectError } = await supabase
       .from("projects")
@@ -78,6 +79,8 @@ projectsRouter.get("/:email/:id?", async (req, res) => {
     .from("projects")
     .select("*")
     .contains("users", JSON.stringify([{ uid: email }]));
+
+  console.log(usersData);
 
   const merged = [...(usersData || [])].filter(
     (v, i, a) => a.findIndex((t) => t.id === v.id) === i,
@@ -115,7 +118,6 @@ projectsRouter.patch(
   },
 );
 
-// --- DELETE PROJECT ---
 projectsRouter.delete(
   "/:id",
   authMiddleware,

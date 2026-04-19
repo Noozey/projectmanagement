@@ -14,7 +14,6 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedProjectIndexRouteImport } from './routes/_authenticated/project/index'
-import { Route as AuthenticatedMessageIndexRouteImport } from './routes/_authenticated/message/index'
 import { Route as AuthenticatedMeetingIndexRouteImport } from './routes/_authenticated/meeting/index'
 import { Route as AuthenticatedProjectProjectIDRouteImport } from './routes/_authenticated/project/$projectID'
 import { Route as AuthenticatedMeetingMeetingIDRouteImport } from './routes/_authenticated/meeting/$meetingID'
@@ -23,6 +22,7 @@ import { Route as AuthenticatedProjectDashboardIndexRouteImport } from './routes
 import { Route as AuthenticatedProjectCalendarIndexRouteImport } from './routes/_authenticated/project/calendar/index'
 import { Route as AuthenticatedProjectTaskTaskIDRouteImport } from './routes/_authenticated/project/task/$taskID'
 import { Route as AuthenticatedProjectSettingsSettingsRouteImport } from './routes/_authenticated/project/settings/$settings'
+import { Route as AuthenticatedProjectMessageMessageRouteImport } from './routes/_authenticated/project/message/$message'
 import { Route as AuthenticatedProjectDashboardDashboardRouteImport } from './routes/_authenticated/project/dashboard/$dashboard'
 import { Route as AuthenticatedProjectCalendarCalendarIDRouteImport } from './routes/_authenticated/project/calendar/$calendarID'
 
@@ -49,12 +49,6 @@ const AuthenticatedProjectIndexRoute =
   AuthenticatedProjectIndexRouteImport.update({
     id: '/project/',
     path: '/project/',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedMessageIndexRoute =
-  AuthenticatedMessageIndexRouteImport.update({
-    id: '/message/',
-    path: '/message/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedMeetingIndexRoute =
@@ -105,6 +99,12 @@ const AuthenticatedProjectSettingsSettingsRoute =
     path: '/project/settings/$settings',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedProjectMessageMessageRoute =
+  AuthenticatedProjectMessageMessageRouteImport.update({
+    id: '/project/message/$message',
+    path: '/project/message/$message',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedProjectDashboardDashboardRoute =
   AuthenticatedProjectDashboardDashboardRouteImport.update({
     id: '/project/dashboard/$dashboard',
@@ -125,10 +125,10 @@ export interface FileRoutesByFullPath {
   '/meeting/$meetingID': typeof AuthenticatedMeetingMeetingIDRoute
   '/project/$projectID': typeof AuthenticatedProjectProjectIDRoute
   '/meeting': typeof AuthenticatedMeetingIndexRoute
-  '/message': typeof AuthenticatedMessageIndexRoute
   '/project': typeof AuthenticatedProjectIndexRoute
   '/project/calendar/$calendarID': typeof AuthenticatedProjectCalendarCalendarIDRoute
   '/project/dashboard/$dashboard': typeof AuthenticatedProjectDashboardDashboardRoute
+  '/project/message/$message': typeof AuthenticatedProjectMessageMessageRoute
   '/project/settings/$settings': typeof AuthenticatedProjectSettingsSettingsRoute
   '/project/task/$taskID': typeof AuthenticatedProjectTaskTaskIDRoute
   '/project/calendar': typeof AuthenticatedProjectCalendarIndexRoute
@@ -142,10 +142,10 @@ export interface FileRoutesByTo {
   '/meeting/$meetingID': typeof AuthenticatedMeetingMeetingIDRoute
   '/project/$projectID': typeof AuthenticatedProjectProjectIDRoute
   '/meeting': typeof AuthenticatedMeetingIndexRoute
-  '/message': typeof AuthenticatedMessageIndexRoute
   '/project': typeof AuthenticatedProjectIndexRoute
   '/project/calendar/$calendarID': typeof AuthenticatedProjectCalendarCalendarIDRoute
   '/project/dashboard/$dashboard': typeof AuthenticatedProjectDashboardDashboardRoute
+  '/project/message/$message': typeof AuthenticatedProjectMessageMessageRoute
   '/project/settings/$settings': typeof AuthenticatedProjectSettingsSettingsRoute
   '/project/task/$taskID': typeof AuthenticatedProjectTaskTaskIDRoute
   '/project/calendar': typeof AuthenticatedProjectCalendarIndexRoute
@@ -161,10 +161,10 @@ export interface FileRoutesById {
   '/_authenticated/meeting/$meetingID': typeof AuthenticatedMeetingMeetingIDRoute
   '/_authenticated/project/$projectID': typeof AuthenticatedProjectProjectIDRoute
   '/_authenticated/meeting/': typeof AuthenticatedMeetingIndexRoute
-  '/_authenticated/message/': typeof AuthenticatedMessageIndexRoute
   '/_authenticated/project/': typeof AuthenticatedProjectIndexRoute
   '/_authenticated/project/calendar/$calendarID': typeof AuthenticatedProjectCalendarCalendarIDRoute
   '/_authenticated/project/dashboard/$dashboard': typeof AuthenticatedProjectDashboardDashboardRoute
+  '/_authenticated/project/message/$message': typeof AuthenticatedProjectMessageMessageRoute
   '/_authenticated/project/settings/$settings': typeof AuthenticatedProjectSettingsSettingsRoute
   '/_authenticated/project/task/$taskID': typeof AuthenticatedProjectTaskTaskIDRoute
   '/_authenticated/project/calendar/': typeof AuthenticatedProjectCalendarIndexRoute
@@ -180,10 +180,10 @@ export interface FileRouteTypes {
     | '/meeting/$meetingID'
     | '/project/$projectID'
     | '/meeting'
-    | '/message'
     | '/project'
     | '/project/calendar/$calendarID'
     | '/project/dashboard/$dashboard'
+    | '/project/message/$message'
     | '/project/settings/$settings'
     | '/project/task/$taskID'
     | '/project/calendar'
@@ -197,10 +197,10 @@ export interface FileRouteTypes {
     | '/meeting/$meetingID'
     | '/project/$projectID'
     | '/meeting'
-    | '/message'
     | '/project'
     | '/project/calendar/$calendarID'
     | '/project/dashboard/$dashboard'
+    | '/project/message/$message'
     | '/project/settings/$settings'
     | '/project/task/$taskID'
     | '/project/calendar'
@@ -215,10 +215,10 @@ export interface FileRouteTypes {
     | '/_authenticated/meeting/$meetingID'
     | '/_authenticated/project/$projectID'
     | '/_authenticated/meeting/'
-    | '/_authenticated/message/'
     | '/_authenticated/project/'
     | '/_authenticated/project/calendar/$calendarID'
     | '/_authenticated/project/dashboard/$dashboard'
+    | '/_authenticated/project/message/$message'
     | '/_authenticated/project/settings/$settings'
     | '/_authenticated/project/task/$taskID'
     | '/_authenticated/project/calendar/'
@@ -267,13 +267,6 @@ declare module '@tanstack/react-router' {
       path: '/project'
       fullPath: '/project'
       preLoaderRoute: typeof AuthenticatedProjectIndexRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/message/': {
-      id: '/_authenticated/message/'
-      path: '/message'
-      fullPath: '/message'
-      preLoaderRoute: typeof AuthenticatedMessageIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/meeting/': {
@@ -332,6 +325,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProjectSettingsSettingsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/project/message/$message': {
+      id: '/_authenticated/project/message/$message'
+      path: '/project/message/$message'
+      fullPath: '/project/message/$message'
+      preLoaderRoute: typeof AuthenticatedProjectMessageMessageRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/project/dashboard/$dashboard': {
       id: '/_authenticated/project/dashboard/$dashboard'
       path: '/project/dashboard/$dashboard'
@@ -354,10 +354,10 @@ interface AuthenticatedRouteChildren {
   AuthenticatedMeetingMeetingIDRoute: typeof AuthenticatedMeetingMeetingIDRoute
   AuthenticatedProjectProjectIDRoute: typeof AuthenticatedProjectProjectIDRoute
   AuthenticatedMeetingIndexRoute: typeof AuthenticatedMeetingIndexRoute
-  AuthenticatedMessageIndexRoute: typeof AuthenticatedMessageIndexRoute
   AuthenticatedProjectIndexRoute: typeof AuthenticatedProjectIndexRoute
   AuthenticatedProjectCalendarCalendarIDRoute: typeof AuthenticatedProjectCalendarCalendarIDRoute
   AuthenticatedProjectDashboardDashboardRoute: typeof AuthenticatedProjectDashboardDashboardRoute
+  AuthenticatedProjectMessageMessageRoute: typeof AuthenticatedProjectMessageMessageRoute
   AuthenticatedProjectSettingsSettingsRoute: typeof AuthenticatedProjectSettingsSettingsRoute
   AuthenticatedProjectTaskTaskIDRoute: typeof AuthenticatedProjectTaskTaskIDRoute
   AuthenticatedProjectCalendarIndexRoute: typeof AuthenticatedProjectCalendarIndexRoute
@@ -370,12 +370,13 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedMeetingMeetingIDRoute: AuthenticatedMeetingMeetingIDRoute,
   AuthenticatedProjectProjectIDRoute: AuthenticatedProjectProjectIDRoute,
   AuthenticatedMeetingIndexRoute: AuthenticatedMeetingIndexRoute,
-  AuthenticatedMessageIndexRoute: AuthenticatedMessageIndexRoute,
   AuthenticatedProjectIndexRoute: AuthenticatedProjectIndexRoute,
   AuthenticatedProjectCalendarCalendarIDRoute:
     AuthenticatedProjectCalendarCalendarIDRoute,
   AuthenticatedProjectDashboardDashboardRoute:
     AuthenticatedProjectDashboardDashboardRoute,
+  AuthenticatedProjectMessageMessageRoute:
+    AuthenticatedProjectMessageMessageRoute,
   AuthenticatedProjectSettingsSettingsRoute:
     AuthenticatedProjectSettingsSettingsRoute,
   AuthenticatedProjectTaskTaskIDRoute: AuthenticatedProjectTaskTaskIDRoute,

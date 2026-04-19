@@ -228,7 +228,7 @@ function RouteComponent() {
   const pStyle = priorityStyles[project.priority] || "";
 
   return (
-    <div className="p-6 space-y-6 min-h-screen">
+    <div className="p-6 space-y-6 bg-sidebar ">
       {/* Header */}
       <div className="space-y-1">
         <div className="flex items-center gap-2 flex-wrap">
