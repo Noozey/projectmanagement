@@ -80,8 +80,6 @@ projectsRouter.get("/:email/:id?", async (req, res) => {
     .select("*")
     .contains("users", JSON.stringify([{ uid: email }]));
 
-  console.log(usersData);
-
   const merged = [...(usersData || [])].filter(
     (v, i, a) => a.findIndex((t) => t.id === v.id) === i,
   );
@@ -96,7 +94,6 @@ projectsRouter.patch(
     const { id } = req.params;
     const { name, description, category, priority, users, duration, status } =
       req.body;
-    console.log(req.body);
 
     const { data, error } = await supabase
       .from("projects")
@@ -111,7 +108,6 @@ projectsRouter.patch(
       })
       .eq("uid", id)
       .select();
-    console.log(error);
 
     if (error) return res.status(500).json({ error: error.message });
     res.status(200).json({ message: "Updated successfully", data });

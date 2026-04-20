@@ -1,40 +1,11 @@
-import express from "express";
-import cros from "cors";
-import { tokenRouter } from "./routes/tokengen.js";
-import { loginRouter } from "./routes/login.js";
-import { registerRouter } from "./routes/register.js";
-import { checkAuthrouter } from "./routes/checkauth.js";
-import { clanderRouter } from "./routes/calendar.js";
-import { projectsRouter } from "./routes/projects.js";
-import { userRouter } from "./routes/user.js";
-import { kanbanRouter } from "./routes/kanban.js";
+import http from "http";
+import app from "./app.js";
 import { initSocket } from "./config/socket.js";
 import registerSocketHandlers from "./sockets/index.js";
-import http from "http";
-import { messageRouter } from "./routes/message.js";
 
 const PORT = 3001;
 
-const app = express();
 const server = http.createServer(app);
-app.use(express.json());
-
-app.use(
-  cros({
-    origin: "*",
-  }),
-);
-
-app.use("/access_token", tokenRouter);
-app.use("/login", loginRouter);
-app.use("/register", registerRouter);
-app.use("/verify", checkAuthrouter);
-app.use("/calendar", clanderRouter);
-app.use("/project", projectsRouter);
-app.use("/user", userRouter);
-app.use("/kanban", kanbanRouter);
-app.use("/token", tokenRouter);
-app.use("/messages", messageRouter);
 
 const io = initSocket(server);
 app.set("socketio", io);

@@ -4,7 +4,6 @@ import { supabase } from "../database/supabaseConfig.js";
 const clanderRouter = express.Router();
 
 clanderRouter.post("/", async (req, res) => {
-  console.log(req);
   try {
     const { projectID, events } = req.body;
 
