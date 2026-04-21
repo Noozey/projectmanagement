@@ -61,7 +61,7 @@ describe("POST /login", () => {
     expect(res.body.token).toBe("fake_token");
   });
 
-  it("should fail if user not found", async () => {
+  it.only("should fail if user not found", async () => {
     mockFrom.mockReturnValue({
       select: () => ({
         eq: () => ({

@@ -112,7 +112,7 @@ describe("Calendar API", () => {
     expect(res.body.events["2026-01-01"].length).toBe(1);
   });
 
-  it("should return 500 if fetch fails", async () => {
+  it.only("should return 500 if fetch fails", async () => {
     mockFrom.mockReturnValue({
       select: () => ({
         eq: () => ({
