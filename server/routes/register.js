@@ -4,8 +4,26 @@ import bcrypt from "bcrypt";
 
 const registerRouter = express.Router();
 
+const validatePassword = (password) => {
+  const passwordRegex =
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
+  return passwordRegex.test(password);
+};
+
 registerRouter.post("/", async (req, res) => {
   const { name, email, password } = req.body;
+
+  if (!name || !email || !password) {
+    return res.status(400).json({ message: "All fields are required" });
+  }
+
+  if (!validatePassword(password)) {
+    return res.status(400).json({
+      message:
+        "Password must be at least 8 characters long and include uppercase, lowercase, number, and special character",
+    });
+  }
 
   const saltRounds = 10;
   const hashedPassword = await bcrypt.hash(password, saltRounds);

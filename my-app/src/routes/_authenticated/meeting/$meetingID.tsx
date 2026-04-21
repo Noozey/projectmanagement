@@ -5,7 +5,9 @@ import { Camera, CameraOff, Mic, MicOff, PhoneOff, User } from "lucide-react";
 import { toast } from "sonner";
 
 const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-const localTracks: { audioTrack?: any; videoTrack?: any } = {};
+
+let localAudioTrack: any = null;
+let localVideoTrack: any = null;
 const remoteUsers: Record<string, any> = {};
 
 export const Route = createFileRoute("/_authenticated/meeting/$meetingID")({
@@ -35,7 +37,6 @@ function MeetingRoom() {
     };
   }, []);
 
-  // Auto-hide controls after inactivity
   useEffect(() => {
     let timeout: NodeJS.Timeout;
     const resetTimer = () => {
@@ -68,11 +69,10 @@ function MeetingRoom() {
         Number(uid),
       );
 
-      // Request microphone and camera permissions with better error handling
       try {
         const [mic, cam] = await AgoraRTC.createMicrophoneAndCameraTracks();
-        localTracks.audioTrack = mic;
-        localTracks.videoTrack = cam;
+        localAudioTrack = mic;
+        localVideoTrack = cam;
 
         const localPlayer = document.getElementById("local-player");
         if (localPlayer) {
@@ -80,12 +80,10 @@ function MeetingRoom() {
         }
 
         await client.publish([mic, cam]);
-        console.log("Successfully joined meeting and published tracks");
         setIsJoining(false);
       } catch (mediaError: any) {
         console.error("Media device error:", mediaError);
 
-        // Try to join with audio only if camera fails
         if (
           mediaError.code === "NOT_READABLE" ||
           mediaError.name === "NotReadableError"
@@ -96,12 +94,10 @@ function MeetingRoom() {
 
           try {
             const mic = await AgoraRTC.createMicrophoneAudioTrack();
-            localTracks.audioTrack = mic;
+            localAudioTrack = mic;
             await client.publish([mic]);
             setCameraOff(true);
             setIsJoining(false);
-
-            // Clear error after 5 seconds
             setTimeout(() => setError(null), 5000);
           } catch (audioError) {
             setError(
@@ -125,8 +121,17 @@ function MeetingRoom() {
 
   const leaveMeeting = async () => {
     try {
-      localTracks.audioTrack?.close();
-      localTracks.videoTrack?.close();
+      // Properly stop and close all tracks to release hardware
+      if (localAudioTrack) {
+        localAudioTrack.stop();
+        localAudioTrack.close();
+        localAudioTrack = null;
+      }
+      if (localVideoTrack) {
+        localVideoTrack.stop();
+        localVideoTrack.close();
+        localVideoTrack = null;
+      }
       await client.leave();
       navigate({ to: "/meeting" });
     } catch (err) {
@@ -148,9 +153,7 @@ function MeetingRoom() {
         }
 
         let div = document.getElementById(id);
-        if (div) {
-          div.remove();
-        }
+        if (div) div.remove();
 
         div = document.createElement("div");
         div.id = id;
@@ -171,14 +174,12 @@ function MeetingRoom() {
 
         if (user.videoTrack) {
           user.videoTrack.play(videoWrapper);
-          console.log(`Playing video for user ${user.uid}`);
         }
       }
 
       if (mediaType === "audio") {
         if (user.audioTrack) {
           user.audioTrack.play();
-          console.log(`Playing audio for user ${user.uid}`);
         }
       }
 
@@ -189,39 +190,62 @@ function MeetingRoom() {
   };
 
   const handleUserLeft = (user: any) => {
-    console.log(`User ${user.uid} left the meeting`);
     delete remoteUsers[user.uid];
     const elem = document.getElementById(`remote-${user.uid}`);
-    if (elem) {
-      elem.remove();
-    }
+    if (elem) elem.remove();
   };
 
   const toggleMute = async () => {
     try {
-      if (localTracks.audioTrack) {
-        await localTracks.audioTrack.setEnabled(!muted);
-        setMuted(!muted);
-        console.log(`Microphone ${!muted ? "muted" : "unmuted"}`);
+      if (!muted) {
+        if (localAudioTrack) {
+          await client.unpublish([localAudioTrack]);
+          localAudioTrack.stop();
+          localAudioTrack.close();
+          localAudioTrack = null;
+        }
+        setMuted(true);
       } else {
-        console.error("Audio track not available");
+        // Unmute: create a fresh track and publish it
+        const mic = await AgoraRTC.createMicrophoneAudioTrack();
+        localAudioTrack = mic;
+        await client.publish([mic]);
+        setMuted(false);
       }
     } catch (err) {
       console.error("Failed to toggle mute:", err);
+      toast.error("Failed to toggle microphone");
     }
   };
 
   const toggleCamera = async () => {
     try {
-      if (localTracks.videoTrack) {
-        await localTracks.videoTrack.setEnabled(!cameraOff);
-        setCameraOff(!cameraOff);
-        console.log(`Camera ${!cameraOff ? "off" : "on"}`);
+      if (!cameraOff) {
+        if (localVideoTrack) {
+          await client.unpublish([localVideoTrack]);
+          localVideoTrack.stop();
+          localVideoTrack.close();
+          localVideoTrack = null;
+
+          const localPlayer = document.getElementById("local-player");
+          if (localPlayer) localPlayer.innerHTML = "";
+        }
+        setCameraOff(true);
       } else {
-        console.error("Video track not available");
+        const cam = await AgoraRTC.createCameraVideoTrack();
+        localVideoTrack = cam;
+
+        const localPlayer = document.getElementById("local-player");
+        if (localPlayer) {
+          cam.play("local-player");
+        }
+
+        await client.publish([cam]);
+        setCameraOff(false);
       }
     } catch (err) {
       console.error("Failed to toggle camera:", err);
+      toast.error("Failed to toggle camera");
     }
   };
 
