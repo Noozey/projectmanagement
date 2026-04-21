@@ -367,8 +367,7 @@ function RouteComponent() {
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex gap-4 pt-6 border-t">
+              <div className="flex gap-4 pt-6 border-t flex-wrap">
                 <Button
                   variant="outline"
                   className="flex-1"

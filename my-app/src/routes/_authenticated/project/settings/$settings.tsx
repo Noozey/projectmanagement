@@ -24,6 +24,7 @@ import {
   Save,
   ChevronRight,
   Loader2,
+  Menu,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -61,6 +62,7 @@ function RouteComponent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [activeSection, setActiveSection] = useState("general");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
@@ -71,7 +73,6 @@ function RouteComponent() {
   const [projectStatus, setProjectStatus] = useState("active");
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
 
-  // UI Helpers — Add New Member
   const [newMemberEmail, setNewMemberEmail] = useState("");
   const [newMemberRole, setNewMemberRole] = useState("Viewer");
   const [selectedNewMember, setSelectedNewMember] = useState<any>(null);
@@ -147,7 +148,6 @@ function RouteComponent() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // --- UPDATE EXISTING MEMBER ROLE ---
   const updateMemberRole = (uid: string, email: string, newRole: string) => {
     setTeamMembers((prev) =>
       prev.map((m) => {
@@ -236,6 +236,11 @@ function RouteComponent() {
     }
   };
 
+  const handleNavClick = (id: string) => {
+    setActiveSection(id);
+    setSidebarOpen(false); // close drawer on mobile after selection
+  };
+
   if (isLoading) {
     return (
       <div className="flex h-[80vh] items-center justify-center">
@@ -245,21 +250,35 @@ function RouteComponent() {
   }
 
   return (
-    <div className="bg-background my-5 min-h-screen rounded-2xl p-6">
+    <div className="bg-background my-5 min-h-screen rounded-2xl p-4 sm:p-6">
       {/* HEADER */}
-      <div className="mb-8 flex justify-between items-center">
+      <div className="mb-6 sm:mb-8 flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-            <Settings className="w-6 h-6 text-primary" />
+          {/* Mobile hamburger to open sidebar */}
+          <button
+            className="sm:hidden p-2 rounded-lg border bg-background"
+            onClick={() => setSidebarOpen((v) => !v)}
+            aria-label="Open navigation"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+
+          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
+            <Settings className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold">Project Settings</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-2xl sm:text-3xl font-bold">Project Settings</h1>
+            <p className="text-muted-foreground text-sm sm:text-base">
               Manage {projectName || "Project"}
             </p>
           </div>
         </div>
-        <Button onClick={handleSave} disabled={isSaving} className="gap-2">
+
+        <Button
+          onClick={handleSave}
+          disabled={isSaving}
+          className="gap-2 w-full sm:w-auto"
+        >
           {isSaving ? (
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
@@ -270,43 +289,67 @@ function RouteComponent() {
       </div>
 
       <div className="flex gap-6 items-start">
-        {/* SIDEBAR NAVIGATION */}
-        <aside className="w-56 shrink-0">
-          <Card className="shadow-sm">
-            <CardContent className="p-2">
-              <nav className="space-y-0.5">
-                {navItems.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => setActiveSection(item.id)}
-                    className={`w-full flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                      activeSection === item.id
-                        ? item.id === "danger"
-                          ? "bg-destructive/10 text-destructive"
-                          : "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:bg-accent"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <item.icon className="w-4 h-4" />
-                      {item.label}
-                    </div>
-                    <ChevronRight
-                      className={`w-3.5 h-3.5 ${activeSection === item.id ? "opacity-100" : "opacity-0"}`}
-                    />
-                  </button>
-                ))}
-              </nav>
-            </CardContent>
-          </Card>
-        </aside>
+        {/* SIDEBAR — desktop: always visible, mobile: overlay drawer */}
+        <>
+          {/* Backdrop for mobile */}
+          {sidebarOpen && (
+            <div
+              className="fixed inset-0 z-30 bg-black/40 sm:hidden"
+              onClick={() => setSidebarOpen(false)}
+            />
+          )}
+
+          <aside
+            className={`
+              fixed top-0 left-0 z-40 h-full w-64 bg-background shadow-xl p-4 transition-transform duration-200
+              sm:static sm:z-auto sm:h-auto sm:w-56 sm:p-0 sm:bg-transparent sm:shadow-none sm:translate-x-0 sm:block sm:shrink-0
+              ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
+            `}
+          >
+            {/* Mobile close button */}
+            <div className="flex justify-between items-center mb-4 sm:hidden">
+              <span className="font-semibold text-sm">Navigation</span>
+              <button onClick={() => setSidebarOpen(false)} aria-label="Close">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <Card className="shadow-sm">
+              <CardContent className="p-2">
+                <nav className="space-y-0.5">
+                  {navItems.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => handleNavClick(item.id)}
+                      className={`w-full flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                        activeSection === item.id
+                          ? item.id === "danger"
+                            ? "bg-destructive/10 text-destructive"
+                            : "bg-primary/10 text-primary"
+                          : "text-muted-foreground hover:bg-accent"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <item.icon className="w-4 h-4" />
+                        {item.label}
+                      </div>
+                      <ChevronRight
+                        className={`w-3.5 h-3.5 ${activeSection === item.id ? "opacity-100" : "opacity-0"}`}
+                      />
+                    </button>
+                  ))}
+                </nav>
+              </CardContent>
+            </Card>
+          </aside>
+        </>
 
         {/* CONTENT SECTIONS */}
         <div className="flex-1 min-w-0 space-y-6">
           {/* GENERAL SECTION */}
           {activeSection === "general" && (
             <Card className="shadow-lg">
-              <CardContent className="p-8 space-y-6">
+              <CardContent className="p-5 sm:p-8 space-y-6">
                 <div className="space-y-2">
                   <Label>Project Name *</Label>
                   <Input
@@ -321,7 +364,7 @@ function RouteComponent() {
                     onChange={(e) => setProjectDescription(e.target.value)}
                   />
                 </div>
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label>Category</Label>
                     <div className="flex flex-wrap gap-2">
@@ -362,7 +405,7 @@ function RouteComponent() {
                   <div className="flex gap-2">
                     <Input
                       type="number"
-                      className="w-24"
+                      className="w-24 shrink-0"
                       value={durationValue}
                       onChange={(e) => setDurationValue(e.target.value)}
                     />
@@ -380,12 +423,10 @@ function RouteComponent() {
           {/* TEAM SECTION */}
           {activeSection === "team" && (
             <Card className="shadow-lg">
-              <CardContent className="p-8 space-y-6">
+              <CardContent className="p-5 sm:p-8 space-y-6">
                 <h2 className="text-lg font-semibold">Add New Member</h2>
 
-                {/* Add Member Row */}
-                <div className="flex gap-2 items-start">
-                  {/* Email Input + Suggestions */}
+                <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-start">
                   <div className="relative flex-1" ref={suggestionsRef}>
                     <Input
                       placeholder="Search by email or name"
@@ -405,7 +446,6 @@ function RouteComponent() {
                       }}
                     />
 
-                    {/* Suggestions Dropdown */}
                     {showSuggestions && (
                       <div className="absolute z-20 w-full mt-1 bg-card border rounded-md shadow-lg max-h-48 overflow-auto">
                         {userSuggestions.length > 0 ? (
@@ -440,36 +480,39 @@ function RouteComponent() {
                     )}
                   </div>
 
-                  {/* Role Dropdown for new member */}
-                  <Select
-                    value={newMemberRole}
-                    onValueChange={(value) => setNewMemberRole(value)}
-                  >
-                    <SelectTrigger className="w-40 shrink-0">
-                      <SelectValue placeholder="Select a Role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectLabel>Roles</SelectLabel>
-                        {roleOptions.map((r) => (
-                          <SelectItem key={r} value={r}>
-                            {r}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
+                  <div className="flex gap-2 flex-wrap">
+                    <Select
+                      value={newMemberRole}
+                      onValueChange={(value) => setNewMemberRole(value)}
+                    >
+                      <SelectTrigger className="w-full sm:w-40 shrink-0">
+                        <SelectValue placeholder="Select a Role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel>Roles</SelectLabel>
+                          {roleOptions.map((r) => (
+                            <SelectItem key={r} value={r}>
+                              {r}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
 
-                  {/* Add Button */}
-                  <Button onClick={addTeamMember} className="shrink-0">
-                    <Plus className="w-4 h-4 mr-1" /> Add
-                  </Button>
+                    <Button
+                      onClick={addTeamMember}
+                      className="shrink-0 max-sm:w-full"
+                    >
+                      <Plus className="w-4 h-4 mr-1" /> Add
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Selected user preview */}
                 {selectedNewMember && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
+                    <span className="w-2 h-2 rounded-full bg-green-500 inline-block shrink-0" />
                     Selected:{" "}
                     <span className="font-medium text-foreground">
                       {selectedNewMember.name || selectedNewMember.email}
@@ -502,7 +545,7 @@ function RouteComponent() {
                     teamMembers.map((member) => (
                       <div
                         key={member.uid || member.email}
-                        className="flex items-center justify-between p-3 border rounded-xl gap-3"
+                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 border rounded-xl gap-3"
                       >
                         {/* Member Info */}
                         <div className="flex-1 min-w-0">
@@ -521,39 +564,40 @@ function RouteComponent() {
                           )}
                         </div>
 
-                        {/* Role Dropdown — inline edit for existing member */}
-                        <Select
-                          value={member.role || "Viewer"}
-                          onValueChange={(value) =>
-                            updateMemberRole(member.uid, member.email, value)
-                          }
-                        >
-                          <SelectTrigger className="w-36 shrink-0">
-                            <SelectValue placeholder="Select a Role" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectGroup>
-                              <SelectLabel>Roles</SelectLabel>
-                              {roleOptions.map((r) => (
-                                <SelectItem key={r} value={r}>
-                                  {r}
-                                </SelectItem>
-                              ))}
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
+                        {/* Role Dropdown + Remove — side by side on mobile too */}
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Select
+                            value={member.role || "Viewer"}
+                            onValueChange={(value) =>
+                              updateMemberRole(member.uid, member.email, value)
+                            }
+                          >
+                            <SelectTrigger className="w-36">
+                              <SelectValue placeholder="Select a Role" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectGroup>
+                                <SelectLabel>Roles</SelectLabel>
+                                {roleOptions.map((r) => (
+                                  <SelectItem key={r} value={r}>
+                                    {r}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            </SelectContent>
+                          </Select>
 
-                        {/* Remove Button */}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="shrink-0"
-                          onClick={() =>
-                            removeTeamMember(member.uid, member.email)
-                          }
-                        >
-                          <X className="w-4 h-4 text-destructive" />
-                        </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="shrink-0"
+                            onClick={() =>
+                              removeTeamMember(member.uid, member.email)
+                            }
+                          >
+                            <X className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </div>
                       </div>
                     ))
                   )}
@@ -565,7 +609,7 @@ function RouteComponent() {
           {/* DANGER ZONE SECTION */}
           {activeSection === "danger" && (
             <Card className="shadow-lg border-destructive/30 bg-destructive/5">
-              <CardContent className="p-8 space-y-4">
+              <CardContent className="p-5 sm:p-8 space-y-4">
                 <h2 className="text-xl font-bold text-destructive flex items-center gap-2">
                   <AlertTriangle className="w-5 h-5" /> Danger Zone
                 </h2>

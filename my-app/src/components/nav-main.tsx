@@ -14,12 +14,13 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { useProject } from "@/context/project";
 import { useUser } from "@/context/user";
 import { api } from "@/lib/api";
 import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "@tanstack/react-router";
+import { useNavigate, useLocation, Link } from "@tanstack/react-router";
 
 type ProjectData = { name: string; url: number };
 type Project = { [key: string]: any };
@@ -40,6 +41,7 @@ export function NavMain({
   const { projectID, switchProject } = useProject();
   const navigate = useNavigate();
   const location = useLocation();
+  const { isMobile, setOpenMobile } = useSidebar();
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -63,6 +65,7 @@ export function NavMain({
       to: "/project/dashboard/$projectID",
       params: { projectID: String(project.url) },
     });
+    if (isMobile) setOpenMobile(false);
     setOpen(false);
   };
 
@@ -127,10 +130,13 @@ export function NavMain({
                 tooltip={item.title}
                 isActive={isActive}
               >
-                <a href={item.url}>
+                <Link
+                  to={item.url}
+                  onClick={() => isMobile && setOpenMobile(false)}
+                >
                   <item.icon />
                   <span>{item.title}</span>
-                </a>
+                </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
           );

@@ -19,7 +19,6 @@ import { io } from "socket.io-client";
 import { toast } from "sonner";
 import { ScrollArea } from "./ui/scroll-area";
 
-// Types
 type User = {
   id: string;
   name: string;
@@ -54,7 +53,6 @@ export function Kanban() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Form States
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDesc, setTaskDesc] = useState("");
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
@@ -93,26 +91,22 @@ export function Kanban() {
   useEffect(() => {
     if (!projectID) return;
 
-    // 1. Connect and Join Room
     if (!socket.connected) {
       socket.connect();
     }
     socket.emit("join_project", projectID);
 
-    // --- TASK HANDLERS ---
     const handleTaskUpdate = (updatedTask: any) => {
       setColumns((prev) => {
         const newColumns = { ...prev };
         const taskId = updatedTask.id || updatedTask.taskId;
 
-        // Step 1: Remove the task from its current column (wherever it is)
         Object.keys(newColumns).forEach((colId) => {
           newColumns[colId].tasks = newColumns[colId].tasks.filter(
             (t) => t.id !== taskId,
           );
         });
 
-        // Step 2: Add it to the target column (the backend sends column_id)
         const targetColId = updatedTask.column_id;
         if (newColumns[targetColId]) {
           newColumns[targetColId].tasks.push({
@@ -318,21 +312,22 @@ export function Kanban() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <LayoutPanelTop className="h-8 w-8" />
+          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+            <LayoutPanelTop className="h-6 w-6 sm:h-8 sm:w-8" />
             Kanban Board
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">
             Manage your columns and tasks with ease
           </p>
         </div>
 
         <Dialog open={isColumnDialogOpen} onOpenChange={setIsColumnDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" /> Add New Column
             </Button>
           </DialogTrigger>
@@ -427,7 +422,7 @@ export function Kanban() {
           {Object.entries(columns).map(([columnId, column]) => (
             <div
               key={columnId}
-              className="bg-secondary p-4 rounded-lg shadow-md border border-border min-w-[320px] max-w-[320px] shrink-0"
+              className="bg-secondary p-4 rounded-lg shadow-md border border-border w-[320px] "
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, columnId)}
             >
@@ -472,7 +467,7 @@ export function Kanban() {
                           <span className="text-sm font-semibold pr-12">
                             {task.title}
                           </span>
-                          <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="absolute top-2 right-2 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                             <Button
                               variant="ghost"
                               size="icon"

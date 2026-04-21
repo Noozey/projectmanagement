@@ -5,7 +5,7 @@ export const Route = createRootRoute({
   component: () => (
     <div className="bg-sidebar font-sans flex ">
       <Header />
-      <div className="bg-sidebar w-screen h-screen">
+      <div className="bg-sidebar w-screen h-screen max-md:mt-10">
         <Outlet />
       </div>
     </div>

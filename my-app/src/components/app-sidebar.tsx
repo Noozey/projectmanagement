@@ -21,7 +21,6 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
-import logo from "../../public/logo.png";
 import { NavCreate } from "./nav-create";
 import { useProject } from "@/context/project";
 
@@ -77,8 +76,23 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <a href="#">
-                <div className=" text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                  <img src={logo} alt="Logo" className="h-10" />
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    className="lucide lucide-sport-shoe-icon lucide-sport-shoe"
+                  >
+                    <path d="m15 10.42 4.8-5.07" />
+                    <path d="M19 18h3" />
+                    <path d="M9.5 22 21.414 9.415A2 2 0 0 0 21.2 6.4l-5.61-4.208A1 1 0 0 0 14 3v2a2 2 0 0 1-1.394 1.906L8.677 8.053A1 1 0 0 0 8 9c-.155 6.393-2.082 9-4 9a2 2 0 0 0 0 4h14" />
+                  </svg>
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">SriderDesk</span>

@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { createFileRoute } from "@tanstack/react-router";
-import { MessageCircle, Send } from "lucide-react";
+import { MessageCircle, Send, ArrowLeft } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { io } from "socket.io-client";
 import { useUser } from "@/context/user";
@@ -33,6 +33,7 @@ function Message() {
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [showChat, setShowChat] = useState(false); // mobile: toggle between list and chat
   const messagesEndRef = useRef(null);
   const { user: userInfo } = useUser();
 
@@ -52,12 +53,9 @@ function Message() {
 
   useEffect(() => {
     const handleReceive = (data) => {
-      // Add received message to messages array
       setMessages((prev) => [...prev, data]);
     };
-
     socket.on("receive_message", handleReceive);
-
     return () => {
       socket.off("receive_message", handleReceive);
     };
@@ -72,18 +70,15 @@ function Message() {
     getProjectMembers();
   }, [projectID]);
 
-  // Load chat history when a user is selected
   useEffect(() => {
     if (selectedUser && currentUserId) {
       const loadChatHistory = async () => {
         try {
-          // Adjust endpoint according to your API
           const response = await api.get(`/messages/${selectedUser.uid}`);
           setMessages(response.data.messages || []);
-          console.log(response.data.message);
         } catch (error) {
           console.error("Error loading chat history:", error);
-          setMessages([]); // Reset to empty if error
+          setMessages([]);
         }
       };
       loadChatHistory();
@@ -98,7 +93,6 @@ function Message() {
         text: message,
         createdAt: new Date().toISOString(),
       };
-
       socket.emit("send_message", {
         receiverId: selectedUser.uid,
         text: message,
@@ -108,10 +102,8 @@ function Message() {
     }
   };
 
-  // Filter messages for the selected conversation
   const getFilteredMessages = () => {
     if (!selectedUser || !currentUserId) return [];
-
     return messages.filter((msg) => {
       return (
         (msg.senderId === currentUserId &&
@@ -123,44 +115,57 @@ function Message() {
 
   const filteredMessages = getFilteredMessages();
 
+  const handleSelectUser = (value, index) => {
+    setSelectedUser(value);
+    setSelectedIndex(index);
+    setShowChat(true); // on mobile, switch to chat view
+  };
+
+  const handleBack = () => {
+    setShowChat(false);
+  };
+
   return (
-    <div className="bg-background my-5 h-screen rounded-2xl flex">
-      {/* Sidebar */}
-      <div className="w-80 border-r border-border bg-background rounded-l-2xl">
+    <div
+      className="bg-background my-5 rounded-2xl flex overflow-hidden"
+      style={{ height: "calc(100vh - 40px)" }}
+    >
+      {/* SIDEBAR — always visible on sm+, hidden on mobile when chat is open */}
+      <div
+        className={`
+          w-full sm:w-80 border-r border-border bg-background rounded-l-2xl flex-col flex
+          ${showChat ? "hidden sm:flex" : "flex"}
+        `}
+      >
         {/* Header */}
-        <div className="p-6">
+        <div className="p-5 sm:p-6 shrink-0">
           <h2 className="text-2xl font-semibold tracking-tight text-foreground">
             Messages
           </h2>
         </div>
-        <Separator className="bg-border" />
+        <Separator className="bg-border shrink-0" />
+
         {/* User List */}
-        <div
-          className="p-3 space-y-1 overflow-y-auto"
-          style={{ maxHeight: "calc(100vh - 160px)" }}
-        >
+        <div className="p-3 space-y-1 overflow-y-auto flex-1">
           {user.map((value, index) => {
             const isSelected = selectedIndex === index;
             return (
               <div
                 key={value.uid || index}
-                onClick={() => {
-                  setSelectedUser(value);
-                  setSelectedIndex(index);
-                }}
+                onClick={() => handleSelectUser(value, index)}
                 className={`group p-4 hover:bg-accent rounded-lg cursor-pointer transition-colors duration-200 ${
                   isSelected ? "bg-accent" : ""
                 }`}
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center">
+                  <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                     <span className="text-sm font-medium text-primary">
                       {value.name.slice(0, 2).toUpperCase()}
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <p
-                      className={`font-medium ${isSelected ? `text-accent-foreground` : `text-foreground group-hover:text-accent-foreground`}`}
+                      className={`font-medium ${isSelected ? "text-accent-foreground" : "text-foreground group-hover:text-accent-foreground"}`}
                     >
                       {value.name}
                     </p>
@@ -174,29 +179,47 @@ function Message() {
           })}
         </div>
       </div>
-      {/* Message Area */}
-      <div className="flex-1 flex flex-col bg-background rounded-r-2xl">
+
+      {/* CHAT AREA — always visible on sm+, only visible on mobile when showChat=true */}
+      <div
+        className={`
+          flex-1 flex flex-col bg-background rounded-r-2xl
+          ${showChat ? "flex" : "hidden sm:flex"}
+          w-full sm:w-auto
+        `}
+      >
         {selectedUser ? (
           <>
             {/* Chat Header */}
-            <div className="p-6 border-b border-border">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <span className="text-base font-medium text-primary">
+            <div className="p-4 sm:p-6 border-b border-border shrink-0">
+              <div className="flex items-center gap-3 sm:gap-4">
+                {/* Back button — mobile only */}
+                <button
+                  onClick={handleBack}
+                  className="sm:hidden p-1.5 rounded-lg hover:bg-accent transition-colors"
+                  aria-label="Back to contacts"
+                >
+                  <ArrowLeft className="w-5 h-5 text-foreground" />
+                </button>
+
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <span className="text-sm sm:text-base font-medium text-primary">
                     {selectedUser.name.slice(0, 2).toUpperCase()}
                   </span>
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-foreground">
+                  <h3 className="text-base sm:text-lg font-semibold text-foreground">
                     {selectedUser.name}
                   </h3>
-                  <p className="text-sm text-muted-foreground">Active now</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Active now
+                  </p>
                 </div>
               </div>
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 p-6 overflow-y-auto">
+            <div className="flex-1 p-4 sm:p-6 overflow-y-auto">
               {filteredMessages.length === 0 ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center space-y-2">
@@ -215,10 +238,10 @@ function Message() {
                     return (
                       <div
                         key={index}
-                        className={`flex ${isSentByMe ? `justify-end` : `justify-start`}`}
+                        className={`flex ${isSentByMe ? "justify-end" : "justify-start"}`}
                       >
                         <div
-                          className={`max-w-[70%] rounded-lg px-4 py-2 ${
+                          className={`max-w-[85%] sm:max-w-[70%] rounded-lg px-4 py-2 ${
                             isSentByMe
                               ? "bg-primary text-primary-foreground"
                               : "bg-muted text-foreground"
@@ -247,7 +270,7 @@ function Message() {
             </div>
 
             {/* Message Input */}
-            <div className="p-4 border-t border-border">
+            <div className="p-3 sm:p-4 border-t border-border shrink-0">
               <div className="flex gap-2">
                 <Input
                   value={message}
