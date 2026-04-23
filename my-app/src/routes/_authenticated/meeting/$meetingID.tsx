@@ -141,7 +141,7 @@ function MeetingRoom() {
 
   const handleUserPublished = async (user: any, mediaType: string) => {
     try {
-      await client.subscribe(user, mediaType);
+      await client.subscribe(user, mediaType as "video" | "audio");
 
       if (mediaType === "video") {
         const id = `remote-${user.uid}`;

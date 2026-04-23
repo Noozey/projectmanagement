@@ -62,8 +62,10 @@ export function NavMain({
   const handleProjectSwitch = (project: ProjectData) => {
     switchProject(String(project.url));
     navigate({
-      to: "/project/dashboard/$projectID",
-      params: { projectID: String(project.url) },
+      to: "/project/dashboard/$dashboard",
+      params: {
+        dashboard: String(project.url),
+      },
     });
     if (isMobile) setOpenMobile(false);
     setOpen(false);
@@ -96,7 +98,7 @@ export function NavMain({
               <SidebarMenuSub>
                 {projects.length === 0 && (
                   <SidebarMenuSubItem>
-                    <SidebarMenuSubButton disabled>
+                    <SidebarMenuSubButton>
                       <span className="text-muted-foreground text-xs">
                         No projects found
                       </span>

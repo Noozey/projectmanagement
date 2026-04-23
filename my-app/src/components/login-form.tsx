@@ -52,8 +52,8 @@ export function LoginForm({
             toast.error(res.data.message);
           }
         });
-    } catch (error) {
-      toast.error(error?.response?.data?.message || "Something went wrong");
+    } catch (error: any) {
+      toast.error(error.response.data.message || "Something went wrong");
     }
   };
 

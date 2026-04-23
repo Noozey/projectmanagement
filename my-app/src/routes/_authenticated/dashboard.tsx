@@ -224,8 +224,8 @@ function RouteComponent() {
                   <Link
                     key={p.uid}
                     className="block px-4 py-3 hover:bg-accent/30 transition-colors group cursor-pointer"
-                    to="/project/dashboard/$projectID"
-                    params={{ projectID: p.uid }}
+                    to="/project/dashboard/$dashboard"
+                    params={{ dashboard: p.uid }}
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex-1 min-w-0">

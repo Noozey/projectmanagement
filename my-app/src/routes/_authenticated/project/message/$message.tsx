@@ -9,6 +9,19 @@ import { io } from "socket.io-client";
 import { useUser } from "@/context/user";
 import { useProject } from "@/context/project";
 
+interface ProjectMember {
+  uid: string;
+  name: string;
+  email?: string;
+}
+
+interface ChatMessage {
+  senderId: string;
+  receiverId: string;
+  text: string;
+  createdAt: string;
+}
+
 const socket = io("http://localhost:3001", {
   auth: {
     token: localStorage.getItem("token"),
@@ -27,14 +40,14 @@ function RouteComponent() {
 
 function Message() {
   const { projectID } = useProject();
-  const [user, setUser] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [selectedIndex, setSelectedIndex] = useState(null);
+  const [members, setMembers] = useState<ProjectMember[]>([]);
+  const [selectedUser, setSelectedUser] = useState<ProjectMember | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState([]);
-  const [currentUserId, setCurrentUserId] = useState(null);
-  const [showChat, setShowChat] = useState(false); // mobile: toggle between list and chat
-  const messagesEndRef = useRef(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [showChat, setShowChat] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user: userInfo } = useUser();
 
   useEffect(() => {
@@ -52,7 +65,7 @@ function Message() {
   }, [messages]);
 
   useEffect(() => {
-    const handleReceive = (data) => {
+    const handleReceive = (data: ChatMessage) => {
       setMessages((prev) => [...prev, data]);
     };
     socket.on("receive_message", handleReceive);
@@ -65,7 +78,7 @@ function Message() {
     const getProjectMembers = async () => {
       if (!projectID) return;
       const res = await api.get(`/kanban/${projectID}/members`);
-      setUser(res.data);
+      setMembers(res.data as ProjectMember[]);
     };
     getProjectMembers();
   }, [projectID]);
@@ -75,7 +88,7 @@ function Message() {
       const loadChatHistory = async () => {
         try {
           const response = await api.get(`/messages/${selectedUser.uid}`);
-          setMessages(response.data.messages || []);
+          setMessages((response.data.messages as ChatMessage[]) || []);
         } catch (error) {
           console.error("Error loading chat history:", error);
           setMessages([]);
@@ -86,8 +99,8 @@ function Message() {
   }, [selectedUser, currentUserId]);
 
   const handleSendMessage = () => {
-    if (message.trim() && selectedUser) {
-      const messageData = {
+    if (message.trim() && selectedUser && currentUserId) {
+      const messageData: ChatMessage = {
         senderId: currentUserId,
         receiverId: selectedUser.uid,
         text: message,
@@ -102,23 +115,22 @@ function Message() {
     }
   };
 
-  const getFilteredMessages = () => {
+  const getFilteredMessages = (): ChatMessage[] => {
     if (!selectedUser || !currentUserId) return [];
-    return messages.filter((msg) => {
-      return (
+    return messages.filter(
+      (msg) =>
         (msg.senderId === currentUserId &&
           msg.receiverId === selectedUser.uid) ||
-        (msg.senderId === selectedUser.uid && msg.receiverId === currentUserId)
-      );
-    });
+        (msg.senderId === selectedUser.uid && msg.receiverId === currentUserId),
+    );
   };
 
   const filteredMessages = getFilteredMessages();
 
-  const handleSelectUser = (value, index) => {
+  const handleSelectUser = (value: ProjectMember, index: number) => {
     setSelectedUser(value);
     setSelectedIndex(index);
-    setShowChat(true); // on mobile, switch to chat view
+    setShowChat(true);
   };
 
   const handleBack = () => {
@@ -130,14 +142,13 @@ function Message() {
       className="bg-background my-5 rounded-2xl flex overflow-hidden"
       style={{ height: "calc(100vh - 40px)" }}
     >
-      {/* SIDEBAR — always visible on sm+, hidden on mobile when chat is open */}
+      {/* SIDEBAR */}
       <div
         className={`
           w-full sm:w-80 border-r border-border bg-background rounded-l-2xl flex-col flex
           ${showChat ? "hidden sm:flex" : "flex"}
         `}
       >
-        {/* Header */}
         <div className="p-5 sm:p-6 shrink-0">
           <h2 className="text-2xl font-semibold tracking-tight text-foreground">
             Messages
@@ -145,9 +156,8 @@ function Message() {
         </div>
         <Separator className="bg-border shrink-0" />
 
-        {/* User List */}
         <div className="p-3 space-y-1 overflow-y-auto flex-1">
-          {user.map((value, index) => {
+          {members.map((value, index) => {
             const isSelected = selectedIndex === index;
             return (
               <div
@@ -165,7 +175,11 @@ function Message() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p
-                      className={`font-medium ${isSelected ? "text-accent-foreground" : "text-foreground group-hover:text-accent-foreground"}`}
+                      className={`font-medium ${
+                        isSelected
+                          ? "text-accent-foreground"
+                          : "text-foreground group-hover:text-accent-foreground"
+                      }`}
                     >
                       {value.name}
                     </p>
@@ -180,7 +194,7 @@ function Message() {
         </div>
       </div>
 
-      {/* CHAT AREA — always visible on sm+, only visible on mobile when showChat=true */}
+      {/* CHAT AREA */}
       <div
         className={`
           flex-1 flex flex-col bg-background rounded-r-2xl
@@ -193,7 +207,6 @@ function Message() {
             {/* Chat Header */}
             <div className="p-4 sm:p-6 border-b border-border shrink-0">
               <div className="flex items-center gap-3 sm:gap-4">
-                {/* Back button — mobile only */}
                 <button
                   onClick={handleBack}
                   className="sm:hidden p-1.5 rounded-lg hover:bg-accent transition-colors"
@@ -275,7 +288,7 @@ function Message() {
                 <Input
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  onKeyPress={(e) => {
+                  onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
                       handleSendMessage();
@@ -296,7 +309,6 @@ function Message() {
             </div>
           </>
         ) : (
-          // Empty State
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center space-y-3">
               <div className="flex justify-center">

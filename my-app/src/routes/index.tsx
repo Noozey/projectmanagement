@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import logo from "../../public/logo.png";
 import { LoginForm } from "@/components/login-form";
 
 export const Route = createFileRoute("/")({
@@ -15,9 +14,7 @@ function App() {
             href="#"
             className="flex items-center gap-2 self-center font-medium"
           >
-            <div className="text-primary-foreground flex size-6 items-center justify-center rounded-md">
-              <img src={logo} alt="Logo" className="h-6 w-6" />
-            </div>
+            <div className="text-primary-foreground flex size-6 items-center justify-center rounded-md"></div>
             SriderDesk
           </a>
           <LoginForm />

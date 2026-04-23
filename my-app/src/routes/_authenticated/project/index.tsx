@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { FolderPlus, Users, FileText, X } from "lucide-react";
+import { FolderPlus, Users, FileText } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { useUser } from "@/context/user";
@@ -23,6 +23,27 @@ export const Route = createFileRoute("/_authenticated/project/")({
   component: RouteComponent,
 });
 
+type UserRecord = {
+  uid?: string;
+  id?: string;
+  email?: string;
+  name?: string;
+};
+
+type ProjectManager = {
+  email: string;
+  name: string;
+  uid: string;
+};
+
+type TeamMember = {
+  id: number;
+  email: string;
+  role: string;
+  uid: string;
+  name: string;
+};
+
 function RouteComponent() {
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
@@ -32,16 +53,16 @@ function RouteComponent() {
   const [durationUnit, setDurationUnit] = useState("");
   const [email, setEmail] = useState("");
 
-  const [projectManager, setProjectManager] = useState({
+  const [projectManager, setProjectManager] = useState<ProjectManager>({
     email: "",
     name: "",
     uid: "",
   });
-  const [teamMembers, setTeamMembers] = useState([
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([
     { id: 1, email: "", role: "", uid: "", name: "" },
   ]);
 
-  const [users, setUsers] = useState();
+  const [users, setUsers] = useState<UserRecord[] | null>(null);
 
   const { user } = useUser();
 
@@ -50,7 +71,7 @@ function RouteComponent() {
       if (email) {
         api.post("/user/profile", { email }).then((res) => {
           if ([200, 201, 202, 204].includes(res.status)) {
-            setUsers(res.data.message);
+            setUsers(res.data.message as UserRecord[]);
           }
         });
       }
@@ -66,13 +87,11 @@ function RouteComponent() {
     ]);
   };
 
-  const removeTeamMember = (id) => {
-    if (teamMembers.length > 1) {
-      setTeamMembers(teamMembers.filter((member) => member.id !== id));
-    }
-  };
-
-  const updateTeamMember = (id, field, value) => {
+  const updateTeamMember = (
+    id: number,
+    field: keyof Omit<TeamMember, "id">,
+    value: string,
+  ) => {
     setTeamMembers(
       teamMembers.map((member) =>
         member.id === id ? { ...member, [field]: value } : member,
@@ -94,7 +113,7 @@ function RouteComponent() {
 
     await api.post("/project", { projectData }).then((res) => {
       if ([200, 201, 202, 204].includes(res.status)) {
-        toast(res.data.message);
+        toast(res.data.message as string);
         setProjectName("");
         setProjectDescription("");
         setProjectCategory("");
@@ -104,7 +123,7 @@ function RouteComponent() {
         setProjectManager({ email: "", name: "", uid: "" });
         setTeamMembers([{ id: 1, email: "", role: "", name: "", uid: "" }]);
       } else {
-        toast(res.data.message);
+        toast(res.data.message as string);
       }
     });
   };
@@ -119,6 +138,8 @@ function RouteComponent() {
     setProjectManager({ email: "", name: "", uid: "" });
     setTeamMembers([{ id: 1, email: "", role: "", name: "", uid: "" }]);
   };
+
+  const resolveUser = (u: UserRecord): UserRecord => u;
 
   return (
     <div className="bg-background my-5 h-screen rounded-2xl p-6">
@@ -237,30 +258,33 @@ function RouteComponent() {
                   {users && email && projectManager.email === email && (
                     <div className="absolute z-10 w-full mt-1 bg-card border rounded-md shadow-lg max-h-48 overflow-auto">
                       {Array.isArray(users) && users.length > 0 ? (
-                        users.map((user, index) => (
-                          <div
-                            key={index}
-                            className="px-4 py-2 cursor-pointer"
-                            onClick={() => {
-                              setProjectManager({
-                                email: user.email || user,
-                                name: user.name || "",
-                                uid: user.uid || user.id || "",
-                              });
-                              setEmail("");
-                              setUsers(null);
-                            }}
-                          >
-                            <div className="font-medium">
-                              {user.name || user.email || user}
-                            </div>
-                            {user.email && user.name && (
-                              <div className="text-sm text-gray-500">
-                                {user.email}
+                        users.map((u, index) => {
+                          const resolved = resolveUser(u);
+                          return (
+                            <div
+                              key={index}
+                              className="px-4 py-2 cursor-pointer"
+                              onClick={() => {
+                                setProjectManager({
+                                  email: resolved.email ?? "",
+                                  name: resolved.name ?? "",
+                                  uid: resolved.uid ?? resolved.id ?? "",
+                                });
+                                setEmail("");
+                                setUsers(null);
+                              }}
+                            >
+                              <div className="font-medium">
+                                {resolved.name ?? resolved.email ?? ""}
                               </div>
-                            )}
-                          </div>
-                        ))
+                              {resolved.email && resolved.name && (
+                                <div className="text-sm text-gray-500">
+                                  {resolved.email}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
                       ) : (
                         <div className="px-4 py-2 text-gray-500">
                           No users found
@@ -293,38 +317,45 @@ function RouteComponent() {
                             {users && email && member.email === email && (
                               <div className="absolute z-10 w-full mt-1 bg-card border rounded-md shadow-lg max-h-48 overflow-auto">
                                 {Array.isArray(users) && users.length > 0 ? (
-                                  users.map((user, index) => (
-                                    <div
-                                      key={index}
-                                      className="px-4 py-2 cursor-pointer"
-                                      onClick={() => {
-                                        setTeamMembers((prev) =>
-                                          prev.map((m) =>
-                                            m.id === member.id
-                                              ? {
-                                                  ...m,
-                                                  email: user.email || user,
-                                                  name: user.name || "",
-                                                  uid:
-                                                    user.uid || user.id || "",
-                                                }
-                                              : m,
-                                          ),
-                                        );
-                                        setEmail("");
-                                        setUsers(null);
-                                      }}
-                                    >
-                                      <div className="font-medium">
-                                        {user.name || user.email || user}
-                                      </div>
-                                      {user.email && user.name && (
-                                        <div className="text-sm text-gray-500">
-                                          {user.email}
+                                  users.map((u, index) => {
+                                    const resolved = resolveUser(u);
+                                    return (
+                                      <div
+                                        key={index}
+                                        className="px-4 py-2 cursor-pointer"
+                                        onClick={() => {
+                                          setTeamMembers((prev) =>
+                                            prev.map((m) =>
+                                              m.id === member.id
+                                                ? {
+                                                    ...m,
+                                                    email: resolved.email ?? "",
+                                                    name: resolved.name ?? "",
+                                                    uid:
+                                                      resolved.uid ??
+                                                      resolved.id ??
+                                                      "",
+                                                  }
+                                                : m,
+                                            ),
+                                          );
+                                          setEmail("");
+                                          setUsers(null);
+                                        }}
+                                      >
+                                        <div className="font-medium">
+                                          {resolved.name ??
+                                            resolved.email ??
+                                            ""}
                                         </div>
-                                      )}
-                                    </div>
-                                  ))
+                                        {resolved.email && resolved.name && (
+                                          <div className="text-sm text-gray-500">
+                                            {resolved.email}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })
                                 ) : (
                                   <div className="px-4 py-2 text-gray-500">
                                     No users found
