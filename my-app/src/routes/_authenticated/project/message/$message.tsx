@@ -5,7 +5,6 @@ import { api } from "@/lib/api";
 import { createFileRoute } from "@tanstack/react-router";
 import { MessageCircle, Send, ArrowLeft } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
-import { io } from "socket.io-client";
 import { useUser } from "@/context/user";
 import { useProject } from "@/context/project";
 
@@ -22,11 +21,9 @@ interface ChatMessage {
   createdAt: string;
 }
 
-const socket = io("http://localhost:3001", {
-  auth: {
-    token: localStorage.getItem("token"),
-  },
-});
+// Same host as the REST API, just wss:// instead of https:// - the Worker
+// serves both HTTP routes and the /ws/* upgrade endpoints from one origin.
+const WS_BASE_URL = "wss://project-management-api.rohanupreti4.workers.dev";
 
 export const Route = createFileRoute(
   "/_authenticated/project/message/$message",
@@ -48,6 +45,7 @@ function Message() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [showChat, setShowChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const { user: userInfo } = useUser();
 
   useEffect(() => {
@@ -64,13 +62,31 @@ function Message() {
     scrollToBottom();
   }, [messages]);
 
+  // Personal WebSocket channel - replaces `io(...)` + the module-level
+  // `socket`. Runs once we actually have a token, and reconnects if the
+  // token changes (e.g. re-login). Connecting to /ws/user *is* joining
+  // your own room, no separate "join" event needed.
   useEffect(() => {
-    const handleReceive = (data: ChatMessage) => {
-      setMessages((prev) => [...prev, data]);
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    const ws = new WebSocket(`${WS_BASE_URL}/ws/user?token=${token}`);
+    wsRef.current = ws;
+
+    ws.onmessage = (event) => {
+      const { type, payload } = JSON.parse(event.data);
+      if (type === "receive_message") {
+        setMessages((prev) => [...prev, payload as ChatMessage]);
+      }
     };
-    socket.on("receive_message", handleReceive);
+
+    ws.onerror = (err) => {
+      console.error("WebSocket error:", err);
+    };
+
     return () => {
-      socket.off("receive_message", handleReceive);
+      ws.close();
+      wsRef.current = null;
     };
   }, []);
 
@@ -99,20 +115,30 @@ function Message() {
   }, [selectedUser, currentUserId]);
 
   const handleSendMessage = () => {
-    if (message.trim() && selectedUser && currentUserId) {
-      const messageData: ChatMessage = {
-        senderId: currentUserId,
-        receiverId: selectedUser.uid,
-        text: message,
-        createdAt: new Date().toISOString(),
-      };
-      socket.emit("send_message", {
-        receiverId: selectedUser.uid,
-        text: message,
-      });
-      setMessages((prev) => [...prev, messageData]);
-      setMessage("");
+    if (!message.trim() || !selectedUser || !currentUserId) return;
+
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      console.error("WebSocket is not connected");
+      return;
     }
+
+    const messageData: ChatMessage = {
+      senderId: currentUserId,
+      receiverId: selectedUser.uid,
+      text: message,
+      createdAt: new Date().toISOString(),
+    };
+
+    ws.send(
+      JSON.stringify({
+        type: "send_message",
+        payload: { receiverId: selectedUser.uid, text: message },
+      }),
+    );
+
+    setMessages((prev) => [...prev, messageData]);
+    setMessage("");
   };
 
   const getFilteredMessages = (): ChatMessage[] => {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
@@ -15,7 +15,6 @@ import {
 } from "./ui/dialog";
 import { api } from "@/lib/api";
 import { useProject } from "@/context/project";
-import { io } from "socket.io-client";
 import { toast } from "sonner";
 import { ScrollArea } from "./ui/scroll-area";
 
@@ -41,11 +40,8 @@ type Column = {
   [key: string]: ColumnItem;
 };
 
-const socket = io("http://localhost:3001", {
-  auth: {
-    token: localStorage.getItem("token"),
-  },
-});
+// Same host as the REST API, just wss:// instead of https://.
+const WS_BASE_URL = "wss://project-management-api.rohanupreti4.workers.dev";
 
 export function Kanban() {
   const { projectID } = useProject();
@@ -65,6 +61,7 @@ export function Kanban() {
     columnId: string;
     taskId: string;
   } | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
 
   const loadKanbanData = async () => {
     try {
@@ -88,13 +85,21 @@ export function Kanban() {
     }
   };
 
+  // Kanban board WebSocket channel - replaces the socket.io "project room".
+  // Connecting to /ws/kanban/:projectId *is* joining that project's room
+  // (no separate "join_project" emit needed), and each project gets its
+  // own connection, so switching projects closes the old socket and opens
+  // a fresh one against the new project's Durable Object instance.
   useEffect(() => {
     if (!projectID) return;
 
-    if (!socket.connected) {
-      socket.connect();
-    }
-    socket.emit("join_project", projectID);
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    const ws = new WebSocket(
+      `${WS_BASE_URL}/ws/kanban/${projectID}?token=${token}`,
+    );
+    wsRef.current = ws;
 
     const handleTaskUpdate = (updatedTask: any) => {
       setColumns((prev) => {
@@ -132,7 +137,6 @@ export function Kanban() {
       });
     };
 
-    // --- COLUMN HANDLERS ---
     const handleColumnCreate = (newCol: any) => {
       setColumns((prev) => ({
         ...prev,
@@ -151,20 +155,34 @@ export function Kanban() {
       });
     };
 
-    // Register Listeners
-    socket.on("kanban_task_created", handleTaskUpdate);
-    socket.on("kanban_task_updated", handleTaskUpdate);
-    socket.on("kanban_task_deleted", handleTaskDelete);
-    socket.on("kanban_column_created", handleColumnCreate);
-    socket.on("kanban_column_deleted", handleColumnDelete);
+    // Single dispatcher, since a plain WebSocket only has one onmessage
+    // (no per-event listeners like socket.io's `.on(event, handler)`).
+    ws.onmessage = (event) => {
+      const { type, payload } = JSON.parse(event.data);
+      switch (type) {
+        case "kanban_task_created":
+        case "kanban_task_updated":
+          handleTaskUpdate(payload);
+          break;
+        case "kanban_task_deleted":
+          handleTaskDelete(payload);
+          break;
+        case "kanban_column_created":
+          handleColumnCreate(payload);
+          break;
+        case "kanban_column_deleted":
+          handleColumnDelete(payload);
+          break;
+      }
+    };
 
-    // Cleanup
+    ws.onerror = (err) => {
+      console.error("Kanban WebSocket error:", err);
+    };
+
     return () => {
-      socket.off("kanban_task_created", handleTaskUpdate);
-      socket.off("kanban_task_updated", handleTaskUpdate);
-      socket.off("kanban_task_deleted", handleTaskDelete);
-      socket.off("kanban_column_created", handleColumnCreate);
-      socket.off("kanban_column_deleted", handleColumnDelete);
+      ws.close();
+      wsRef.current = null;
     };
   }, [projectID]);
 
